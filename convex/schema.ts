@@ -64,7 +64,7 @@ export default defineSchema({
     description: v.string(),
     status: toolStatus,
   })
-    .index("by_owner", ["ownerId"])
+    .index("by_owner_status", ["ownerId", "status"])
     .index("by_status_category", ["status", "category"]),
 
   loans: defineTable({
