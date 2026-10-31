@@ -20,7 +20,7 @@ Follow every step in order. Do not skip a step because it looks optional. Each s
 
 ### Prerequisites
 
-- Node.js 20.9 or later
+- Node.js 22.12 or later (required by Vitest)
 - pnpm
 - A Clerk account (free) at [dashboard.clerk.com](https://dashboard.clerk.com)
 
@@ -163,6 +163,15 @@ pnpm dev
 ```
 
 To open the local Convex dashboard in the browser, run `pnpm exec convex dashboard`.
+
+### Tests
+
+The Convex function tests use [`convex-test`](https://docs.convex.dev/testing/convex-test) with Vitest. They run against an in-memory mock backend, so `convex dev` does not need to run.
+
+```sh
+pnpm test:once   # run all tests once
+pnpm test        # watch mode
+```
 
 ### Troubleshooting
 
