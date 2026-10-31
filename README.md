@@ -1,36 +1,179 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LendLoop
 
-## Getting Started
+Borrow what you need. Lend what you don't.
 
-First, run the development server:
+LendLoop is a neighborhood tool-lending board. Neighbors list tools they can lend, request to borrow tools for a date range, and get automated notifications and overdue reminders through n8n.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Stack
+
+- Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4
+- Clerk for authentication
+- Convex for data and backend logic
+- n8n for workflow automation
+- pnpm as the package manager
+
+## Development setup
+
+Each developer runs their own local Convex backend and uses their own Clerk development app. No secrets are shared between developers, and no secrets are committed to the repository.
+
+Follow every step in order. Do not skip a step because it looks optional. Each step was tested on 2026-10-31 with Node.js 26.11.1, pnpm 12.11.2, Convex CLI 1.48.0, and `@clerk/nextjs` 7.9.22. Dashboards change over time. If a screen does not match these steps, check the current [Convex + Clerk docs](https://docs.convex.dev/auth/clerk) before you continue.
+
+### Prerequisites
+
+- Node.js 20.9 or later
+- pnpm
+- A Clerk account (free) at [dashboard.clerk.com](https://dashboard.clerk.com)
+
+A Convex account is not required for local development.
+
+### 1. Install dependencies
+
+```sh
+git clone <repository-url> lendloop
+cd lendloop
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Start the local Convex backend
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```sh
+pnpm exec convex dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Do not use `--configure new`. That option forces a Convex account login.
+2. When the CLI asks "Would you like to login to your account?", select **Start without an account (run Convex locally)**.
+3. Wait for the message `Convex functions ready!`.
+4. Keep this terminal open. The local backend runs only while `convex dev` runs.
 
-## Learn More
+The CLI writes `CONVEX_DEPLOYMENT`, `NEXT_PUBLIC_CONVEX_URL`, and `NEXT_PUBLIC_CONVEX_SITE_URL` to `.env.local`. Do not edit these values.
 
-To learn more about Next.js, take a look at the following resources:
+### 3. Create a Clerk development app
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. In the Clerk dashboard, create an application:
+   - Application type: **Consumer**
+   - Name: `LendLoop`
+   - Sign-in options: **Email** and **Google** on. All other options off, including **Phone number**.
+2. Skip the "Add authentication to your app" page. Do not use its agent prompt or the Clerk CLI. The code is already in this repository.
+3. Open [dashboard.clerk.com/apps/setup/convex](https://dashboard.clerk.com/apps/setup/convex). Select your workspace, the `LendLoop` application, and the **Development** instance. Select **Activate Convex integration**.
+4. **Required: add the `email` and `name` claims to the session token.** Clerk session tokens do not include them by default, and the Convex integration adds only `aud`. Without this step, sign-in works but your user is not created, and the browser console shows `Clerk token has no email claim`.
+   1. In the Clerk dashboard, select **Configure** in the top menu.
+   2. Select **Sessions** in the left menu.
+   3. In the **Claims** editor, replace the content with:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+      ```json
+      {
+        "aud": "convex",
+        "email": "{{user.primary_email_address}}",
+        "name": "{{user.full_name}}"
+      }
+      ```
 
-## Deploy on Vercel
+   4. Select **Save** in the "Unsaved changes" bar at the bottom of the page.
+   5. Check the **Preview**. It must show your email. `"name": null` is OK. The app then uses the email as the name.
+5. Select **Configure**, then **API keys** in the left menu (under **Instance**).
+6. Open `.env.local` in your editor. Add the publishable key from the **Publishable key** section:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   ```
+   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+7. Add a secret key. The `default` secret key is locked and cannot be copied. In the **Secret keys** section, select **Add new key**. Clerk shows the full key only once. Copy it before you close the dialog:
+
+   ```
+   CLERK_SECRET_KEY=sk_test_...
+   ```
+
+   If you lose the key, create a new one and delete the old one.
+
+### 4. Set the Convex environment variable
+
+Convex functions run in the Convex backend. They do not read `.env.local`. Copy the **Frontend API URL** from the right side of the Clerk **API keys** page. Set it on your Convex deployment with this exact name (not `CLERK_FRONTEND_API_URL`, which the Clerk setup page shows):
+
+```sh
+pnpm exec convex env set CLERK_JWT_ISSUER_DOMAIN https://<your-app>.clerk.accounts.dev
+```
+
+Check that the `convex dev` terminal shows `Convex functions ready!` with no error.
+
+### 5. Start the app
+
+In a second terminal:
+
+```sh
+pnpm dev
+```
+
+1. Open [http://localhost:3000](http://localhost:3000).
+2. Select **Sign in to lend or borrow**, and sign up.
+3. Check that your user menu shows at the top right.
+4. Check that Convex created your user:
+
+   ```sh
+   pnpm exec convex data users
+   ```
+
+   The table must show one row with your email. If it is empty, see [Troubleshooting](#troubleshooting).
+
+### 6. Make yourself an admin (optional)
+
+New users have the `user` role. Admin rights can only be granted with internal Convex functions. The browser cannot call them. Sign in once first, then run:
+
+```sh
+pnpm admin:grant you@example.com
+```
+
+The result is `"granted"`, or `"already admin"` if you run it again. To check, run `pnpm exec convex data users --format jsonLines` and look at the `role` field.
+
+To remove admin rights:
+
+```sh
+pnpm admin:revoke you@example.com
+```
+
+The result is `"revoked"`, or `"not admin"`.
+
+These scripts call the internal Convex functions `users:grantAdmin` and `users:revokeAdmin`. `convex dev` must be running.
+
+### Environment variables
+
+| Variable | Where it is set | Source |
+|---|---|---|
+| `CONVEX_DEPLOYMENT` | `.env.local` | Written by `convex dev` |
+| `NEXT_PUBLIC_CONVEX_URL` | `.env.local` | Written by `convex dev` |
+| `NEXT_PUBLIC_CONVEX_SITE_URL` | `.env.local` | Written by `convex dev` |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | `.env.local` | Clerk dashboard, **API keys** |
+| `CLERK_SECRET_KEY` | `.env.local` | Clerk dashboard, **API keys**. Secret. |
+| `CLERK_JWT_ISSUER_DOMAIN` | Convex deployment (`convex env set`) | Clerk dashboard, **API keys**, Frontend API URL |
+
+To see the variables and values on your Convex deployment:
+
+```sh
+pnpm exec convex env list --include-values
+```
+
+Add `--names-only` to hide the values.
+
+### Daily development
+
+Run these in two terminals:
+
+```sh
+pnpm exec convex dev
+pnpm dev
+```
+
+To open the local Convex dashboard in the browser, run `pnpm exec convex dashboard`.
+
+### Troubleshooting
+
+**`convex dev` asks you to log in.** You used `--configure new`. Press `Ctrl+C` and run `pnpm exec convex dev` with no options.
+
+**`pnpm install` fails with `ERR_PNPM_IGNORED_BUILDS` for esbuild.** `pnpm-workspace.yaml` must contain `esbuild: true` under `allowBuilds`. The Convex CLI needs esbuild.
+
+**The browser console shows `Clerk token has no email claim. Claims present: ...`.** The session token claims are missing. Do step 3.4, select **Save**, then reload the page. The setting applies to all users of the Clerk app, including existing users.
+
+**The `users` table is empty after sign-in.** Read the recent Convex logs:
+
+```sh
+pnpm exec convex logs --history 10 --success
+```
