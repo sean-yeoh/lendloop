@@ -12,6 +12,37 @@ LendLoop is a neighborhood tool-lending board. Neighbors list tools they can len
 - n8n for workflow automation
 - pnpm as the package manager
 
+## Data model
+
+The schema is in `convex/schema.ts`.
+
+| Table | Purpose |
+|---|---|
+| `users` | One row for each Clerk user. Has the `admin` or `user` role, and the `trustedLender` flag. |
+| `tools` | Tool listings: name, category, condition, description, owner, and status (`active` or `removed`). |
+| `loans` | Borrow requests and loans for a date range. |
+| `loanEvents` | Loan activity, from users and from n8n (for example `reminder_sent`). |
+
+Loan status changes:
+
+```
+requested -> approved -> returned
+requested -> declined
+requested -> cancelled
+```
+
+### Decisions
+
+- **Categories and conditions are fixed lists in code.** The filter cannot get duplicates such as "Garden" and "gardening". To add a value, change the schema and deploy. If the list must change often, move it to a table that admins manage.
+- **Deleting a tool is a soft delete.** The status changes to `removed`, and the tool does not show in lists. Loans keep a valid reference to the tool.
+- **Availability is calculated, not stored.** A tool is "on loan" when it has an approved loan that includes today, or an approved loan that is overdue. If availability were also stored on the tool, the two values could disagree.
+- **Dates are calendar dates (`YYYY-MM-DD`).** A loan covers full days, and there are no timezone conversions. Strings in this format compare correctly.
+- **Overlapping requests:** pending requests can overlap. A request cannot overlap an approved loan. Convex checks this when the request is created, and again when the lender approves it. When the lender approves a request, Convex declines the other pending requests that overlap it, and notifies those borrowers.
+- **Only the lender marks a loan returned,** because the lender receives the tool. `returnedAt` records the time. A return after `endDate` is a late return. Until the lender marks it returned, the loan is overdue and n8n sends reminders.
+- **The borrower can cancel a request** while its status is `requested`.
+- **Overdue is not a status.** A loan is overdue when its status is `approved` and its `endDate` is before today.
+- **Owners cannot block dates.** The requirements do not include this. The owner controls each loan with approve and decline. A possible next step is a `toolBlocks` table, checked with the same overlap rule as loans.
+
 ## Development setup
 
 Each developer runs their own local Convex backend and uses their own Clerk development app. No secrets are shared between developers, and no secrets are committed to the repository.
