@@ -62,9 +62,17 @@ ok("Keys present");
 step("Convex");
 if (!readEnv().CONVEX_DEPLOYMENT) {
   console.log(
-    'The Convex CLI asks how to run. Select "Start without an account (run Convex locally)".\n',
+    'The Convex CLI asks how to run. Select "Start without an account (run Convex locally)".\n' +
+      'Its first push then fails with "CLERK_JWT_ISSUER_DOMAIN ... was not set". That is expected:\n' +
+      "pnpm setup:convex sets it below.\n",
   );
-  run("pnpm", ["exec", "convex", "dev", "--once"]);
+  // This run only needs to configure the deployment. Its push fails until setup:convex sets
+  // CLERK_JWT_ISSUER_DOMAIN, which convex/auth.config.ts reads.
+  try {
+    execFileSync("pnpm", ["exec", "convex", "dev", "--once"], { stdio: "inherit" });
+  } catch {
+    // Checked below.
+  }
   if (!readEnv().CONVEX_DEPLOYMENT)
     fail(`convex dev did not write CONVEX_DEPLOYMENT to ${ENV_FILE}.`);
 }
@@ -77,11 +85,14 @@ if (!convexUrl)
 if (await responds(`${convexUrl}/version`)) {
   ok(`Already running at ${convexUrl}`);
 } else {
+  // Without --once, convex dev keeps running when a push fails for a missing environment
+  // variable, and pushes again when one is set. Its output is hidden: the push error before
+  // setup:convex is expected.
   backend = spawn("pnpm", ["exec", "convex", "dev", "--tail-logs", "disable"], {
-    stdio: ["ignore", "ignore", "inherit"],
+    stdio: "ignore",
   });
   if (!(await waitFor(`${convexUrl}/version`, 120)))
-    stop("The local Convex backend did not start.");
+    stop("The local Convex backend did not start. Run pnpm exec convex dev to see why.");
   ok(`Started at ${convexUrl} for this setup`);
 }
 

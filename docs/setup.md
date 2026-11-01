@@ -209,6 +209,8 @@ To see the variables and values on your Convex deployment, run `pnpm exec convex
 
 **`convex dev` asks you to log in.** You used `--configure new`. Press `Ctrl+C` and run `pnpm exec convex dev` with no options.
 
+**`convex dev` shows `Environment variable CLERK_JWT_ISSUER_DOMAIN is used in auth config file but its value was not set`.** The deployment is new, and setup has not set the Clerk issuer yet. Run `pnpm bootstrap`, or `pnpm setup:convex` while `convex dev` runs. `convex dev` pushes again by itself when the variable is set. `pnpm bootstrap` expects this message on its first run and continues.
+
 **`pnpm install` fails with `ERR_PNPM_IGNORED_BUILDS` for esbuild.** `pnpm-workspace.yaml` must contain `esbuild: true` under `allowBuilds`. The Convex CLI needs esbuild.
 
 **The browser console shows `Clerk token has no email claim. Claims present: ...`.** The session token claims are missing. Do step 1.4, select **Save**, then reload the page. The setting applies to all users of the Clerk app, including existing users.
