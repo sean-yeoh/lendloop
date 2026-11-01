@@ -3,7 +3,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import { assertDate } from "./lib/dates";
 
-// Development data. Run with `pnpm seed`, which creates the Clerk test users first.
+// Development data. Run with `pnpm db:seed`, which creates the Clerk test users first.
 // Internal, so only the CLI with deployment access can call it. Safe to run more than once.
 
 type SeedTool = Pick<Doc<"tools">, "name" | "category" | "condition" | "description">;
@@ -234,7 +234,7 @@ async function reseedLoans(ctx: MutationCtx, userIds: Id<"users">[], today: stri
       .withIndex("by_owner_status", (q) => q.eq("ownerId", lenderId).eq("status", "active"))
       .filter((q) => q.eq(q.field("name"), seed.tool))
       .first();
-    // The tester may have removed a seed tool. Skip its loans.
+    // A developer may have removed a seed tool. Skip its loans.
     if (!tool) continue;
 
     const loanId = await ctx.db.insert("loans", {

@@ -1,4 +1,4 @@
-// Usage: make clerk-setup  (or: pnpm clerk:setup)
+// Usage: pnpm setup:clerk
 // Connects the local Convex deployment to the Clerk development instance. Safe to run more than once.
 //
 // 1. Copies CLERK_SECRET_KEY to Convex, for deleting Clerk users and turning off Clerk's own
@@ -27,9 +27,7 @@ if (webhookSecret) {
   convexEnvSet("CLERK_WEBHOOK_SIGNING_SECRET", webhookSecret);
   log("Convex: CLERK_WEBHOOK_SIGNING_SECRET set");
 } else {
-  console.log(
-    "- CLERK_WEBHOOK_SIGNING_SECRET is not in .env.local. Skipped. See README, Clerk webhook.",
-  );
+  console.log("- CLERK_WEBHOOK_SIGNING_SECRET is not in .env.local. Skipped. See README, step 7.");
 }
 
 const clerk = createClerkClient({ secretKey });

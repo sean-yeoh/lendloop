@@ -1,3 +1,3 @@
-# Run with `make dev`. Hivemind sets PORT for each process, so the Next.js port is explicit.
-web: pnpm dev --port 3000
+# Run with `pnpm dev`. Hivemind sets PORT for each process, so the Next.js port is explicit.
+web: pnpm dev:web --port 3000
 convex: pnpm exec convex dev

@@ -1,4 +1,4 @@
-// Usage: make n8n-setup  (or: node scripts/n8n-setup.mjs)
+// Usage: pnpm setup:n8n
 // Connects the local n8n container to the local Convex deployment. Safe to run more than once.
 //
 // 1. Creates the two signing secrets on the Convex deployment, if they do not exist yet.
@@ -94,7 +94,7 @@ function findN8nContainer() {
   ])
     .toString()
     .trim();
-  if (!ids) fail("The n8n container is not running. Run `make container-up` first.");
+  if (!ids) fail("The n8n container is not running. Run `pnpm containers:up` first.");
   return ids.split("\n")[0];
 }
 

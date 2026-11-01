@@ -1,7 +1,7 @@
 // Usage: pnpm db:reset  (add --yes to skip the question)
 // Deletes all data in the local Convex deployment: users, tools, loans, activity, and
 // notifications. Environment variables and secrets are kept, so no setup step must run again.
-// Run `pnpm seed` afterwards for test data. Requires: `convex dev` running.
+// Run `pnpm db:seed` afterwards for test data. Requires: `convex dev` running.
 //
 // convex/dev.ts refuses to run on a deployment that is not a local backend.
 import { execFileSync } from "node:child_process";
@@ -29,4 +29,4 @@ for (;;) {
   }
   if (!JSON.parse(output).remaining) break;
 }
-console.log("✓ All data deleted. Run `pnpm seed` for test data.");
+console.log("✓ All data deleted. Run `pnpm db:seed` for test data.");

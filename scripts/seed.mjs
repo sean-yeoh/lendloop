@@ -1,5 +1,6 @@
-// Usage: pnpm seed
-// Creates Clerk test users in the development instance, then seeds their Convex rows and tools.
+// Usage: pnpm db:seed
+// Creates Clerk test users in the development instance, then seeds their Convex rows, tools,
+// and loans.
 // Safe to run more than once. Requires CLERK_SECRET_KEY (development key) and a running `convex dev`.
 import { execFileSync } from "node:child_process";
 import { createClerkClient } from "@clerk/backend";
