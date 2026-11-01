@@ -5,7 +5,16 @@ import { formatDate } from "@/lib/tools";
 export function AvailabilityBadge({ availability }: { availability: Availability }) {
   switch (availability.state) {
     case "available":
-      return <Badge variant="secondary">Available</Badge>;
+      return (
+        <>
+          <Badge variant="secondary">Available</Badge>
+          {availability.nextBookedFrom && (
+            <span className="text-sm text-muted-foreground">
+              Booked from {formatDate(availability.nextBookedFrom)}
+            </span>
+          )}
+        </>
+      );
     case "on_loan":
       return <Badge variant="outline">On loan until {formatDate(availability.until)}</Badge>;
     case "overdue":

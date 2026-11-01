@@ -4,6 +4,7 @@ import { SignInButton } from "@clerk/nextjs";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
 import { Repeat } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { UserMenu } from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
@@ -28,8 +29,12 @@ export function SiteHeader() {
           </SignInButton>
         </Unauthenticated>
         <Authenticated>
-          <NavLink href="/tools">Tools</NavLink>
-          <NavLink href="/my-listings">My listings</NavLink>
+          <div className="hidden items-center gap-1 md:flex">
+            <NavLink href="/tools">Tools</NavLink>
+            <NavLink href="/my-listings">My listings</NavLink>
+            <NavLink href="/requests">My requests</NavLink>
+            <NavLink href="/incoming">Incoming</NavLink>
+          </div>
           <AdminLink />
           <UserMenu />
         </Authenticated>
@@ -45,8 +50,14 @@ function AdminLink() {
 }
 
 function NavLink({ href, children }: { href: string; children: ReactNode }) {
+  const pathname = usePathname();
+  const active = pathname === href || pathname.startsWith(`${href}/`);
   return (
-    <Link href={href} className="text-sm font-medium text-muted-foreground hover:text-foreground">
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className="rounded-md px-2 py-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary"
+    >
       {children}
     </Link>
   );

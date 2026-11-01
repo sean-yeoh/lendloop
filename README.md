@@ -36,7 +36,7 @@ requested -> cancelled
 
 - **Categories and conditions are fixed lists in code.** The filter cannot get duplicates such as "Garden" and "gardening". To add a value, change the schema and deploy. If the list must change often, move it to a table that admins manage.
 - **Deleting a tool is a soft delete.** The status changes to `removed`, and the tool does not show in lists. Loans keep a valid reference to the tool.
-- **Availability is calculated, not stored.** A tool is "on loan" when it has an approved loan that includes today, or an approved loan that is overdue. If availability were also stored on the tool, the two values could disagree.
+- **Availability is calculated, not stored.** A tool is "on loan" when it has an approved loan that includes today, or an approved loan that is overdue. If availability were also stored on the tool, the two values could disagree. An available tool with a future approved loan also shows "Booked from <date>".
 - **The client sends "today" to queries that show availability.** Convex does not re-run a query when `Date.now()` changes ([Convex best practices](https://docs.convex.dev/understanding/best-practices/#date-in-queries)). The client sends its local date. The date changes once a day, so query caching stays effective. "Today" is the user's local date, which is correct for a neighborhood app.
 - **The public list shows all active tools,** with name and category only. It does not show availability, owners, or IDs.
 - **Signed-in users see the owner's name and Trusted Lender badge,** but never the owner's email.
@@ -57,8 +57,10 @@ requested -> cancelled
 |---|---|---|
 | `/` | Anyone | Marketing page: tagline, how it works, the public tool list (name and category only), and sign-in. |
 | `/sign-in` | Anyone | Clerk sign-in and sign-up in one flow, styled with the app theme. |
-| `/tools` | Signed-in users | All tools with availability, filtered by category (`?category=garden`). Admins can remove any tool here. |
+| `/tools` | Signed-in users | All tools with availability, filtered by category (`?category=garden`). Request a tool for a date range. Edit or remove your own tools. Admins can remove any tool here. |
 | `/my-listings` | Signed-in users | Your tools. Add, edit, and remove. |
+| `/requests` | Signed-in users | "My requests": tools that you asked to borrow. Cancel a pending request. |
+| `/incoming` | Signed-in users | "Incoming requests": requests for your tools. Approve, decline, and mark returned. |
 | `/admin` | Admins | Admin tools (in progress). |
 
 `proxy.ts` sends signed-out visitors from signed-in pages to Clerk sign-in. This is for UX only. The Convex functions check access on each call.

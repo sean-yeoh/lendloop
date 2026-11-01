@@ -238,7 +238,7 @@ describe("list", () => {
     const byId = new Map(tools.map((tool) => [tool._id, tool.availability]));
     expect(byId.get(free)).toEqual({ state: "available" });
     expect(byId.get(requested)).toEqual({ state: "available" });
-    expect(byId.get(future)).toEqual({ state: "available" });
+    expect(byId.get(future)).toEqual({ state: "available", nextBookedFrom: "2026-11-11" });
     expect(byId.get(out)).toEqual({ state: "on_loan", until: "2026-11-10" });
     expect(byId.get(late)).toEqual({ state: "overdue", since: "2026-11-09" });
     expect(byId.get(returned)).toEqual({ state: "available" });

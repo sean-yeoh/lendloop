@@ -98,6 +98,17 @@ export const markReturned = mutation({
   },
 });
 
+// Approved date ranges for a tool, so the request calendar can disable booked days.
+// Returns dates only, no borrower details.
+export const bookedRanges = query({
+  args: { toolId: v.id("tools") },
+  handler: async (ctx, { toolId }) => {
+    await requireUser(ctx);
+    const approved = await loansForTool(ctx, toolId, "approved");
+    return approved.map((loan) => ({ startDate: loan.startDate, endDate: loan.endDate }));
+  },
+});
+
 // "My requests": the caller's loans as borrower. Shows the lender's name, never the email.
 export const myRequests = query({
   args: {},

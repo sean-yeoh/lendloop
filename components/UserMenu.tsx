@@ -1,7 +1,7 @@
 "use client";
 
 import { useClerk, useUser } from "@clerk/nextjs";
-import { LogOut, Package, UserCog } from "lucide-react";
+import { Inbox, LogOut, Package, Search, Send, UserCog } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -38,9 +38,21 @@ export function UserMenu() {
           </div>
         </div>
         <DropdownMenuSeparator />
+        <DropdownMenuItem render={<Link href="/tools" />}>
+          <Search />
+          Tools
+        </DropdownMenuItem>
         <DropdownMenuItem render={<Link href="/my-listings" />}>
           <Package />
           My listings
+        </DropdownMenuItem>
+        <DropdownMenuItem render={<Link href="/requests" />}>
+          <Send />
+          My requests
+        </DropdownMenuItem>
+        <DropdownMenuItem render={<Link href="/incoming" />}>
+          <Inbox />
+          Incoming requests
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => openUserProfile()}>
           <UserCog />

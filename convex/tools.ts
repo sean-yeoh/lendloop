@@ -9,8 +9,9 @@ import { toolCategory, toolCondition } from "./schema";
 // Lists are capped until they are paginated.
 const LIST_LIMIT = 200;
 
+// nextBookedFrom: the start of the earliest approved loan that begins after today, if any.
 export type Availability =
-  | { state: "available" }
+  | { state: "available"; nextBookedFrom?: string }
   | { state: "on_loan"; until: string }
   | { state: "overdue"; since: string };
 
@@ -171,5 +172,10 @@ async function getAvailability(ctx: QueryCtx, toolId: Id<"tools">, today: string
   if (overdue) return { state: "overdue", since: overdue.endDate };
   const current = started[0];
   if (current) return { state: "on_loan", until: current.endDate };
-  return { state: "available" };
+
+  const upcoming = approved
+    .map((loan) => loan.startDate)
+    .filter((startDate) => startDate > today)
+    .sort();
+  return upcoming[0] ? { state: "available", nextBookedFrom: upcoming[0] } : { state: "available" };
 }

@@ -291,3 +291,17 @@ describe("lists", () => {
     ]);
   });
 });
+
+describe("bookedRanges", () => {
+  test("returns only the dates of approved loans, and requires sign-in", async () => {
+    const { t, alice, bob, carol, toolId, request } = await scenario();
+    const approved = await request(bob, "2026-11-12", "2026-11-14");
+    await request(carol, "2026-11-20", "2026-11-21");
+    await alice.as.mutation(api.loans.approve, { loanId: approved });
+
+    expect(await carol.as.query(api.loans.bookedRanges, { toolId })).toEqual([
+      { startDate: "2026-11-12", endDate: "2026-11-14" },
+    ]);
+    await expect(t.query(api.loans.bookedRanges, { toolId })).rejects.toThrow("Not signed in");
+  });
+});
