@@ -10,7 +10,8 @@ import { api } from "@/convex/_generated/api";
 import { useLocalToday } from "@/hooks/useLocalToday";
 import { categoryLabels, isToolCategory, type ToolCategory } from "@/lib/tools";
 import { RemoveToolDialog } from "./RemoveToolDialog";
-import { ToolCard, TrustedLenderBadge } from "./ToolCard";
+import { LenderLabel } from "./LenderLabel";
+import { ToolCard } from "./ToolCard";
 import { ToolFormDialog, type EditableTool } from "./ToolFormDialog";
 
 const ALL = "all";
@@ -56,13 +57,12 @@ export function ToolsBrowser({ category }: { category?: ToolCategory }) {
           <ToolCard
             key={tool._id}
             {...tool}
-            meta={
-              <>
-                <span className="text-muted-foreground">
-                  {tool.isMine ? "Your listing" : `Lent by ${tool.owner.name}`}
-                </span>
-                {tool.owner.trustedLender && <TrustedLenderBadge />}
-              </>
+            lender={
+              tool.isMine ? (
+                <span className="text-sm font-medium text-primary">Your listing</span>
+              ) : (
+                <LenderLabel name={tool.owner.name} trustedLender={tool.owner.trustedLender} />
+              )
             }
             actions={
               tool.isMine ? (
