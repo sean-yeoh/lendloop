@@ -51,6 +51,8 @@ requested -> cancelled
 - **A borrower cannot send two overlapping requests for the same tool.** Different borrowers can.
 - **Mutations check the client's "today".** The borrower's local date decides if a start date is in the past. Convex accepts a client date only within one day of the server date, so a client cannot move "today" far back.
 - **Overdue is not a status.** A loan is overdue when its status is `approved` and its `endDate` is before today.
+- **Trusted Lender is a badge.** Admins give it to reliable lenders. Signed-in users see it next to the lender's name. It changes no loan rules.
+- **The admin user list shows names, not emails.** The Trusted Lender decision needs no contact data.
 - **Owners cannot block dates.** The requirements do not include this. The owner controls each loan with approve and decline. A possible next step is a `toolBlocks` table, checked with the same overlap rule as loans.
 
 ## Pages
@@ -63,11 +65,44 @@ requested -> cancelled
 | `/my-listings` | Signed-in users | Your tools. Add, edit, and remove. |
 | `/requests` | Signed-in users | "My requests": tools that you asked to borrow. Cancel a pending request. |
 | `/incoming` | Signed-in users | "Incoming requests": requests for your tools. Approve, decline, and mark returned. |
-| `/admin` | Admins | Admin tools (in progress). |
+| `/admin` | Admins | All loans with a status filter, all listings with remove, and users with the Trusted Lender switch. |
 
 `proxy.ts` sends signed-out visitors from signed-in pages to Clerk sign-in. This is for UX only. The Convex functions check access on each call.
 
 The browser sends its local date to the availability queries. The date is read only in the browser, because the server does not know the user's time zone, and Next.js prerenders pages with Cache Components.
+
+## Access control
+
+All access control is in the Convex functions. Anyone can call a public Convex function directly, so the UI checks are only for display.
+
+Rules:
+
+- **Identity comes from the verified Clerk token** (`ctx.auth`). No function accepts a user ID or a role from the client.
+- **The role is stored in the `users` table.** New users get `user`. Only the internal functions `users:grantAdmin` and `users:revokeAdmin` change it (`pnpm admin:grant`). The browser cannot call internal functions.
+- **Shared checks:** `requireUser`, `requireAdmin` (`convex/lib/auth.ts`), and `getLoanFor(lender | borrower)` (`convex/loans.ts`).
+- **Two kinds of rule:** the role (`user` or `admin`), and ownership (the tool owner, the lender, or the borrower of a loan).
+- **An admin is a user with extra rights.** Admins can also lend and borrow, under the same ownership rules as everyone else.
+- **Each query returns only the fields that its caller needs.** No list returns an email.
+
+| Function | Anyone | User | Admin | Rule | Test (`convex/*.test.ts`) |
+|---|---|---|---|---|---|
+| `tools.listPublic` | ✓ | ✓ | ✓ | Name and category only | listPublic › returns only name and category of active tools, without sign-in |
+| `tools.list`, `tools.mine` | Empty | ✓ | ✓ | `mine`: own tools only | list › returns no tools to a caller that is not signed in. mine › returns only the caller's active tools |
+| `tools.create` | ✗ | ✓ | ✓ | The owner is the caller | create › sets the owner from the token and trims input. create › rejects a caller that is not signed in |
+| `tools.update` | ✗ | Owner | Owner | Admins cannot edit other users' tools | update › rejects other users and admins |
+| `tools.remove` | ✗ | Owner | Any tool | Declines pending requests | remove › lets the owner and admins remove a tool, but not other users |
+| `loans.request` | ✗ | ✓ | ✓ | Not your own tool | request › rejects the owner's own tool. request › rejects a caller that is not signed in |
+| `loans.approve`, `loans.decline`, `loans.markReturned` | ✗ | Lender | Lender | | approve › rejects the borrower and other users. decline and cancel › the lender declines, and the borrower cannot. markReturned › rejects the borrower and a loan that is not approved |
+| `loans.cancel` | ✗ | Borrower | Borrower | Only while `requested` | decline and cancel › the borrower cancels a request, and the lender cannot |
+| `loans.myRequests`, `loans.incoming`, `loans.navCounts` | Empty | Own loans | Own loans | Names, no emails | lists › myRequests and incoming show only the caller's loans, with names and no emails. signed out › list queries return no data, and mutations still reject |
+| `loans.bookedRanges` | Empty | ✓ | ✓ | Dates only | bookedRanges › returns only the dates of approved loans, and nothing when signed out |
+| `loans.listAll` | ✗ | ✗ | ✓ | | lists › listAll is for admins only |
+| `users.listForAdmin` | ✗ | ✗ | ✓ | Names, no emails | Trusted Lender › listForAdmin returns names and tool counts, never emails, to admins only |
+| `users.setTrustedLender` | ✗ | ✗ | ✓ | | Trusted Lender › a normal user cannot mark anyone, including themselves |
+| `users.ensureUser`, `users.me` | ✗ / null | Self | Self | Never changes the role | ensureUser › updates email and name but keeps the role. me › returns null when not signed in |
+| `users.grantAdmin`, `users.revokeAdmin`, `seed.run` | Internal | Internal | Internal | CLI with deployment access only | grantAdmin and revokeAdmin › grant, grant again, revoke, revoke again |
+
+✓ allowed. ✗ rejected with an error. "Empty" returns no data. Signed-out callers get no data from list queries, because the Convex client re-runs open queries without a token during sign-out.
 
 ## Development setup
 

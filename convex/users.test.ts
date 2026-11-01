@@ -140,3 +140,51 @@ describe("requireAdmin", () => {
     expect(await asAlice.query(adminOnly)).toBe("alice@example.com");
   });
 });
+
+describe("Trusted Lender", () => {
+  async function adminAndBob(t: ReturnType<typeof setup>) {
+    const asAdmin = t.withIdentity(alice);
+    await asAdmin.mutation(api.users.ensureUser, {});
+    await t.mutation(internal.users.grantAdmin, { email: "alice@example.com" });
+    const asBob = t.withIdentity({ subject: "user_bob", email: "bob@example.com", name: "Bob" });
+    const bobId = await asBob.mutation(api.users.ensureUser, {});
+    return { asAdmin, asBob, bobId };
+  }
+
+  test("an admin marks and unmarks a Trusted Lender", async () => {
+    const t = setup();
+    const { asAdmin, bobId } = await adminAndBob(t);
+
+    await asAdmin.mutation(api.users.setTrustedLender, { userId: bobId, trusted: true });
+    expect((await t.run((ctx) => ctx.db.get(bobId)))?.trustedLender).toBe(true);
+    await asAdmin.mutation(api.users.setTrustedLender, { userId: bobId, trusted: false });
+    expect((await t.run((ctx) => ctx.db.get(bobId)))?.trustedLender).toBe(false);
+  });
+
+  test("a normal user cannot mark anyone, including themselves", async () => {
+    const t = setup();
+    const { asBob, bobId } = await adminAndBob(t);
+    await expect(
+      asBob.mutation(api.users.setTrustedLender, { userId: bobId, trusted: true }),
+    ).rejects.toThrow("Forbidden");
+  });
+
+  test("listForAdmin returns names and tool counts, never emails, to admins only", async () => {
+    const t = setup();
+    const { asAdmin, asBob } = await adminAndBob(t);
+    await asBob.mutation(api.tools.create, {
+      name: "Rake",
+      category: "garden",
+      condition: "good",
+      description: "",
+    });
+
+    const users = await asAdmin.query(api.users.listForAdmin, {});
+    expect(users).toMatchObject([
+      { name: "Alice", role: "admin", trustedLender: false, toolCount: 0 },
+      { name: "Bob", role: "user", trustedLender: false, toolCount: 1 },
+    ]);
+    expect(JSON.stringify(users)).not.toContain("@example.com");
+    await expect(asBob.query(api.users.listForAdmin, {})).rejects.toThrow("Forbidden");
+  });
+});

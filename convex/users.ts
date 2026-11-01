@@ -1,7 +1,10 @@
 import { ConvexError, v } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
 import { internalMutation, mutation, query } from "./_generated/server";
-import { getCurrentUser } from "./lib/auth";
+import { getCurrentUser, requireAdmin } from "./lib/auth";
+
+// Lists are capped until they are paginated.
+const LIST_LIMIT = 200;
 
 /** Creates or updates the signed-in user's row from the verified Clerk token. */
 export const ensureUser = mutation({
@@ -51,6 +54,41 @@ async function getUserByEmail(ctx: MutationCtx, email: string) {
   if (!user) throw new ConvexError(`No user with email ${email}. The user must sign in once first.`);
   return user;
 }
+
+// Admin view of users. Names only, never emails: Trusted Lender decisions need no contact data.
+export const listForAdmin = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const users = await ctx.db.query("users").take(LIST_LIMIT);
+    return await Promise.all(
+      users.map(async (user) => {
+        const tools = await ctx.db
+          .query("tools")
+          .withIndex("by_owner_status", (q) => q.eq("ownerId", user._id).eq("status", "active"))
+          .take(LIST_LIMIT);
+        return {
+          _id: user._id,
+          name: user.name,
+          role: user.role,
+          trustedLender: user.trustedLender ?? false,
+          toolCount: tools.length,
+        };
+      }),
+    );
+  },
+});
+
+// Trusted Lender is a badge for borrowers. It changes no loan rules.
+export const setTrustedLender = mutation({
+  args: { userId: v.id("users"), trusted: v.boolean() },
+  handler: async (ctx, { userId, trusted }) => {
+    await requireAdmin(ctx);
+    const user = await ctx.db.get(userId);
+    if (!user) throw new ConvexError("User not found");
+    await ctx.db.patch(userId, { trustedLender: trusted });
+  },
+});
 
 // Internal: callable only from the CLI, the dashboard, or other server functions.
 export const grantAdmin = internalMutation({

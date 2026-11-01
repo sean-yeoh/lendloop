@@ -1,21 +1,46 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
+import { AdminListings } from "@/components/admin/AdminListings";
+import { AdminLoans } from "@/components/admin/AdminLoans";
+import { AdminUsers } from "@/components/admin/AdminUsers";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
+import { useLocalToday } from "@/hooks/useLocalToday";
 
-// UX only: admin data comes from Convex functions that check the role with requireAdmin.
+// UX only: every admin query and mutation checks the role in Convex with requireAdmin.
 export default function AdminPage() {
-  const me = useQuery(api.users.me);
+  const { isAuthenticated } = useConvexAuth();
+  const me = useQuery(api.users.me, isAuthenticated ? {} : "skip");
+  const today = useLocalToday();
 
-  if (me === undefined) return null;
+  if (me === undefined || !today) return null;
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-6 py-12">
-      <h1 className="text-2xl font-semibold tracking-tight">Admin</h1>
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-12">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-semibold tracking-tight">Admin</h1>
+        {me?.role === "admin" && (
+          <p className="text-muted-foreground">View all loans, remove listings, and manage Trusted Lenders.</p>
+        )}
+      </div>
       {me?.role === "admin" ? (
-        <p className="text-muted-foreground">
-          Listings, loans, and Trusted Lender management will show here.
-        </p>
+        <Tabs defaultValue="loans" className="gap-4">
+          <TabsList>
+            <TabsTrigger value="loans">Loans</TabsTrigger>
+            <TabsTrigger value="listings">Listings</TabsTrigger>
+            <TabsTrigger value="users">Users</TabsTrigger>
+          </TabsList>
+          <TabsContent value="loans">
+            <AdminLoans today={today} />
+          </TabsContent>
+          <TabsContent value="listings">
+            <AdminListings today={today} />
+          </TabsContent>
+          <TabsContent value="users">
+            <AdminUsers />
+          </TabsContent>
+        </Tabs>
       ) : (
         <p className="text-muted-foreground">You do not have access to this page.</p>
       )}
