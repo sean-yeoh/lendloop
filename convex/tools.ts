@@ -3,10 +3,9 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireUser } from "./lib/auth";
 import { assertDate } from "./lib/dates";
+import { DESCRIPTION_MAX, NAME_MAX } from "./lib/limits";
 import { toolCategory, toolCondition } from "./schema";
 
-const NAME_MAX = 80;
-const DESCRIPTION_MAX = 500;
 // Lists are capped until they are paginated.
 const LIST_LIMIT = 200;
 

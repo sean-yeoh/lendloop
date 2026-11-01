@@ -49,6 +49,19 @@ requested -> cancelled
 - **Overdue is not a status.** A loan is overdue when its status is `approved` and its `endDate` is before today.
 - **Owners cannot block dates.** The requirements do not include this. The owner controls each loan with approve and decline. A possible next step is a `toolBlocks` table, checked with the same overlap rule as loans.
 
+## Pages
+
+| Path | Who | What |
+|---|---|---|
+| `/` | Anyone | Tagline, sign-in button, and the public tool list (name and category only). |
+| `/tools` | Signed-in users | All tools with availability, filtered by category (`?category=garden`). Admins can remove any tool here. |
+| `/my-listings` | Signed-in users | Your tools. Add, edit, and remove. |
+| `/admin` | Admins | Admin tools (in progress). |
+
+`proxy.ts` sends signed-out visitors from signed-in pages to Clerk sign-in. This is for UX only. The Convex functions check access on each call.
+
+The browser sends its local date to the availability queries. The date is read only in the browser, because the server does not know the user's time zone, and Next.js prerenders pages with Cache Components.
+
 ## Development setup
 
 Each developer runs their own local Convex backend and uses their own Clerk development app. No secrets are shared between developers, and no secrets are committed to the repository.

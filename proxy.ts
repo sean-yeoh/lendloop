@@ -1,7 +1,11 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-// Authorization is enforced in Convex functions. This only attaches the Clerk session to requests.
-export default clerkMiddleware();
+const isSignedInRoute = createRouteMatcher(["/tools(.*)", "/my-listings(.*)", "/admin(.*)"]);
+
+// Authorization is enforced in Convex functions. This only sends signed-out visitors to sign-in.
+export default clerkMiddleware(async (auth, req) => {
+  if (isSignedInRoute(req)) await auth.protect();
+});
 
 export const config = {
   matcher: [

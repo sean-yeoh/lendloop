@@ -3,6 +3,7 @@
 import { UserButton } from "@clerk/nextjs";
 import { Authenticated, AuthLoading, useQuery } from "convex/react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { api } from "@/convex/_generated/api";
 
 export function SiteHeader() {
@@ -16,6 +17,8 @@ export function SiteHeader() {
           <div className="size-7 animate-pulse rounded-full bg-muted" />
         </AuthLoading>
         <Authenticated>
+          <NavLink href="/tools">Tools</NavLink>
+          <NavLink href="/my-listings">My listings</NavLink>
           <AdminLink />
           <UserButton />
         </Authenticated>
@@ -27,9 +30,13 @@ export function SiteHeader() {
 function AdminLink() {
   const me = useQuery(api.users.me);
   if (me?.role !== "admin") return null;
+  return <NavLink href="/admin">Admin</NavLink>;
+}
+
+function NavLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Link href="/admin" className="text-sm font-medium text-muted-foreground hover:text-foreground">
-      Admin
+    <Link href={href} className="text-sm font-medium text-muted-foreground hover:text-foreground">
+      {children}
     </Link>
   );
 }
