@@ -13,7 +13,7 @@ export function SiteHeader() {
       </Link>
       <nav className="flex h-8 items-center gap-4">
         <AuthLoading>
-          <div className="size-7 animate-pulse rounded-full bg-zinc-200 dark:bg-zinc-800" />
+          <div className="size-7 animate-pulse rounded-full bg-muted" />
         </AuthLoading>
         <Authenticated>
           <AdminLink />
@@ -28,7 +28,7 @@ function AdminLink() {
   const me = useQuery(api.users.me);
   if (me?.role !== "admin") return null;
   return (
-    <Link href="/admin" className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+    <Link href="/admin" className="text-sm font-medium text-muted-foreground hover:text-foreground">
       Admin
     </Link>
   );

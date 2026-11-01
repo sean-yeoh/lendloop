@@ -7,6 +7,7 @@ LendLoop is a neighborhood tool-lending board. Neighbors list tools they can len
 ## Stack
 
 - Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4
+- shadcn/ui components on Base UI primitives (`components/ui`)
 - Clerk for authentication
 - Convex for data and backend logic
 - n8n (self-hosted in Podman or Docker) for workflow automation

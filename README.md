@@ -7,6 +7,7 @@ LendLoop is a neighborhood tool-lending board. Neighbors list tools they can len
 ## Stack
 
 - Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4
+- shadcn/ui components on Base UI primitives (`components/ui`)
 - Clerk for authentication
 - Convex for data and backend logic
 - n8n for workflow automation
@@ -199,6 +200,16 @@ pnpm dev
 ```
 
 To open the local Convex dashboard in the browser, run `pnpm exec convex dashboard`.
+
+### UI components
+
+The files in `components/ui` come from the shadcn/ui CLI (style `base-nova`, Base UI primitives). To add a component, run:
+
+```sh
+pnpm dlx shadcn@latest add <component>
+```
+
+Then review the diff before you commit. The theme follows the OS light or dark setting (`next-themes`).
 
 ### Tests
 

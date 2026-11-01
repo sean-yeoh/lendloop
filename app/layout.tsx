@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { ThemeProvider } from "next-themes";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
 import { SiteHeader } from "@/components/SiteHeader";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -22,18 +24,23 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
+    // next-themes sets the theme class on <html> before hydration.
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {/* ClerkProvider must wrap ConvexClientProvider, because Convex reads the Clerk session. */}
-        <ClerkProvider>
-          <ConvexClientProvider>
-            <SiteHeader />
-            {children}
-          </ConvexClientProvider>
-        </ClerkProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <ClerkProvider>
+            <ConvexClientProvider>
+              <SiteHeader />
+              {children}
+            </ConvexClientProvider>
+          </ClerkProvider>
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );
