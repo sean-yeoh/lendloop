@@ -6,7 +6,7 @@ import type { ToolCategory } from "@/lib/tools";
 import { LoanActivity, type LoanActivityData } from "./LoanActivity";
 import { LoanStatusBadge } from "./LoanStatusBadge";
 
-export type LoanRowData = {
+type LoanRowData = {
   startDate: string;
   endDate: string;
   status: LoanStatus;

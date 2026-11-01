@@ -13,19 +13,20 @@ LendLoop is a neighborhood tool-lending board. Neighbors list tools they can len
 - n8n (self-hosted in Podman or Docker) for workflow automation
 - pnpm as the package manager
 
-## Requirements summary
+## Product scope
 
-- Public page: company name, tagline, a read-only list of available tools (name and category only, no owner details), and a "Sign in to lend or borrow" button.
-- Signed-in users: list tools (name, category, condition, description), request a loan for a date range, approve or decline requests on their own tools, mark a loan as returned.
-- Views: all tools with availability status and a category filter, "My listings", "My requests", "Incoming requests".
+- The home page is public. It shows the LendLoop name and tagline, a read-only list of available tools (name and category only, no owner details), and a "Sign in to lend or borrow" button.
+- Signed-in users list tools (name, category, condition, description), request a loan for a date range, approve or decline requests for their own tools, and mark a loan as returned.
+- Pages: all tools with availability and a category filter, "My listings", "My requests", "Incoming requests", and an admin page.
 - Roles:
-  - `admin`: remove any listing, view all loans, mark a lender as "Trusted Lender".
-  - `user`: create, edit, and delete only their own listings. Act only on requests that involve their own tools or their own borrowing.
+  - `admin`: removes any listing, sees all loans, and marks a lender as "Trusted Lender".
+  - `user`: creates, edits, and deletes only their own listings, and acts only on requests for their own tools or their own borrowing.
 - n8n workflows:
   - Request notification: Convex calls an n8n webhook when a borrow request is created or changes status.
   - Overdue reminders: a daily workflow gets overdue loans from a Convex HTTP endpoint, sends reminders, and writes the reminder status back to Convex.
-  - An error workflow, so failed runs are visible.
-- Loan activity: show recent automation activity on each loan (for example "Reminder sent 2 days ago").
+  - Error alerts: an error workflow makes failed runs visible.
+- Each loan shows recent automation activity, for example "Reminder sent 2 days ago".
+- Users can delete their account, unless a loan is still active.
 
 ## Rules
 

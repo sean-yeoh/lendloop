@@ -14,7 +14,7 @@ export const ensureUser = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new ConvexError("Not signed in");
     if (!identity.email) {
-      // Claim names only, no values. Add the email claim in Clerk under Sessions > Customize session token.
+      // Claim names only, no values. Add the email claim in Clerk under Configure > Sessions > Claims.
       const claims = Object.keys(identity).join(", ");
       throw new ConvexError(`Clerk token has no email claim. Claims present: ${claims}`);
     }

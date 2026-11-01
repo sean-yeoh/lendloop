@@ -54,7 +54,7 @@ Configuration changes:
 
 ## Product gaps
 
-These are outside the current requirements, and recorded as possible next steps:
+These are not built yet, and are possible next steps:
 
 - **Pickup arrangement.** The app shows names only, so borrowers and lenders cannot contact each other in the app. Options: in-app messages, or sharing contact details after approval with consent.
 - **Owner-blocked dates**, with a `toolBlocks` table checked by the same overlap rule as loans.
