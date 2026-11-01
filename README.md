@@ -4,6 +4,10 @@ Borrow what you need. Lend what you don't.
 
 LendLoop is a neighborhood tool-lending board. Neighbors list tools they can lend, request to borrow tools for a date range, and get automated notifications and overdue reminders through n8n.
 
+- [Data model](#data-model), [Access control](#access-control), [Automation (n8n)](#automation-n8n), [Security and data minimization](#security-and-data-minimization)
+- [Development setup](#development-setup)
+- [Production note](docs/production.md): what must change before production
+
 ## Stack
 
 - Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4
@@ -170,6 +174,43 @@ Every request between Convex and n8n is signed with HMAC-SHA256, in both directi
 - Convex: `convex/lib/signature.ts` and `convex/http.ts`. n8n: a Code node rebuilds the message from the raw request body, and a Crypto node computes the HMAC with the secret from an n8n credential.
 - **The exported workflow JSON contains no secrets.** It refers to the credentials by ID. `make n8n-setup` creates the credentials from the Convex environment variables.
 - n8n blocks access to environment variables in workflows by default (n8n 2.x). This setting is kept. The Convex URL (`http://host.docker.internal:3211`) and the app URL are plain values in the workflow files, because they are not secret. For another environment, change the Convex URL in the **Get overdue loans** and **Record reminder** nodes, and the app URL in the **Compose email** and **Compose reminder** nodes.
+
+## Security and data minimization
+
+### Security
+
+| Area | Measure |
+|---|---|
+| Authentication | Clerk. Convex verifies the Clerk session token (`convex/auth.config.ts`). |
+| Authorization | In every Convex function, by role and by ownership. See [Access control](#access-control). The UI checks are for display only. |
+| Admin rights | Granted only by internal Convex functions from the CLI (`make admin-grant`). No browser request can change a role. |
+| Convex and n8n | HMAC-SHA256 signatures in both directions, a separate secret for each direction, a 5-minute timestamp window, and constant-time comparison. See [Request signing](#request-signing). |
+| Input validation | Convex argument validators, plus checks for name and description length, date format, date ranges, the client date, and loan status changes. |
+| Concurrency | Convex mutations are serializable transactions. An approval checks the overlap again inside its transaction. |
+| Secrets | In `.env.local` (ignored by Git), Convex environment variables, and encrypted n8n credentials. No secret is in the code or in the exported workflow JSON. `make n8n-setup` passes secrets through stdin only. |
+| Local services | n8n and Mailpit listen on `127.0.0.1` only. |
+
+### Data minimization
+
+The app stores only what it needs: Convex keeps each user's Clerk ID, email, display name, role, and Trusted Lender flag. Clerk keeps the sign-in data. No phone numbers, addresses, or payment data are collected.
+
+Each caller gets only the fields that it needs:
+
+| Who | Gets | Does not get |
+|---|---|---|
+| Visitors (public page) | Tool name and category | Owners, IDs, availability |
+| Signed-in users (tool list) | Tool details, availability, the owner's display name and Trusted Lender flag | Any email address, owner IDs |
+| Borrowers and lenders (loan lists) | The other person's display name, dates, status, activity times | Any email address |
+| Booking calendar | Approved date ranges | Who borrowed the tool |
+| Admins | Names, roles, tool counts, all loans with names | Email addresses |
+| n8n request notification | The recipient's name and email, the other person's name, the tool name, the dates | Other email addresses, user IDs |
+| n8n overdue list | The borrower's name and email, the lender's name, the tool name, the end date | The lender's email, user IDs |
+
+- **Display names never fall back to the full email address.** If Clerk has no name, the app uses the part of the email before `@`.
+- **The email address is used only for notifications and reminders**, and only n8n receives it.
+- **Logs:** error messages contain no email addresses or secrets. The one exception is the admin CLI error "No user with email …", which only the operator sees.
+
+Known gaps are listed in the [production note](docs/production.md#data-and-privacy).
 
 ## Development setup
 
