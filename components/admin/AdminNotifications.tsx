@@ -5,7 +5,14 @@ import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { errorMessage } from "@/lib/errors";
@@ -58,7 +65,10 @@ export function AdminNotifications() {
                     <Badge variant="outline">Retrying ({row.attempts})</Badge>
                   )}
                 </TableCell>
-                <TableCell className="max-w-64 truncate text-muted-foreground" title={row.lastError ?? ""}>
+                <TableCell
+                  className="max-w-64 truncate text-muted-foreground"
+                  title={row.lastError ?? ""}
+                >
                   {row.lastError ?? "None"}
                 </TableCell>
                 <TableCell className="pr-4 text-right">

@@ -18,7 +18,12 @@ export async function recordLoanEvent(
   loanId: Id<"loans">,
   type: Doc<"loanEvents">["type"],
 ) {
-  const loanEventId = await ctx.db.insert("loanEvents", { loanId, type, source: "user", at: Date.now() });
+  const loanEventId = await ctx.db.insert("loanEvents", {
+    loanId,
+    type,
+    source: "user",
+    at: Date.now(),
+  });
   if (NOTIFY.has(type)) {
     const notificationId = await ctx.db.insert("notifications", {
       loanEventId,

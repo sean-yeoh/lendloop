@@ -11,22 +11,82 @@ type SeedTool = Pick<Doc<"tools">, "name" | "category" | "condition" | "descript
 // The tools for each seed user, by position in the `users` argument.
 const toolsByOwner: SeedTool[][] = [
   [
-    { name: "Cordless drill", category: "power_tools", condition: "good", description: "18V with two batteries and a charger. Drill bits included." },
-    { name: "Circular saw", category: "power_tools", condition: "fair", description: "7¼ inch blade. Works well, the guard is a bit stiff." },
-    { name: "Extension ladder", category: "ladders", condition: "good", description: "6 metres. Fits on a car roof rack." },
-    { name: "Pressure washer", category: "cleaning", condition: "new", description: "Electric, 130 bar. Patio cleaner attachment included." },
+    {
+      name: "Cordless drill",
+      category: "power_tools",
+      condition: "good",
+      description: "18V with two batteries and a charger. Drill bits included.",
+    },
+    {
+      name: "Circular saw",
+      category: "power_tools",
+      condition: "fair",
+      description: "7¼ inch blade. Works well, the guard is a bit stiff.",
+    },
+    {
+      name: "Extension ladder",
+      category: "ladders",
+      condition: "good",
+      description: "6 metres. Fits on a car roof rack.",
+    },
+    {
+      name: "Pressure washer",
+      category: "cleaning",
+      condition: "new",
+      description: "Electric, 130 bar. Patio cleaner attachment included.",
+    },
   ],
   [
-    { name: "Lawn mower", category: "garden", condition: "good", description: "Petrol, self-propelled. Please return it with some fuel." },
-    { name: "Hedge trimmer", category: "garden", condition: "worn", description: "Cordless. The battery lasts about 30 minutes." },
-    { name: "Socket set", category: "hand_tools", condition: "good", description: "94 pieces, metric and imperial, in a case." },
-    { name: "Stand mixer", category: "kitchen", condition: "good", description: "5 litre bowl with whisk, dough hook, and paddle." },
+    {
+      name: "Lawn mower",
+      category: "garden",
+      condition: "good",
+      description: "Petrol, self-propelled. Please return it with some fuel.",
+    },
+    {
+      name: "Hedge trimmer",
+      category: "garden",
+      condition: "worn",
+      description: "Cordless. The battery lasts about 30 minutes.",
+    },
+    {
+      name: "Socket set",
+      category: "hand_tools",
+      condition: "good",
+      description: "94 pieces, metric and imperial, in a case.",
+    },
+    {
+      name: "Stand mixer",
+      category: "kitchen",
+      condition: "good",
+      description: "5 litre bowl with whisk, dough hook, and paddle.",
+    },
   ],
   [
-    { name: "Two-person tent", category: "camping", condition: "good", description: "Waterproof, sets up in 10 minutes. Pegs and footprint included." },
-    { name: "Camping stove", category: "camping", condition: "fair", description: "Double burner. Gas canisters not included." },
-    { name: "Step ladder", category: "ladders", condition: "new", description: "Five steps, aluminium, folds flat." },
-    { name: "Carpet cleaner", category: "cleaning", condition: "fair", description: "Upright, with a hose for stairs and car seats." },
+    {
+      name: "Two-person tent",
+      category: "camping",
+      condition: "good",
+      description: "Waterproof, sets up in 10 minutes. Pegs and footprint included.",
+    },
+    {
+      name: "Camping stove",
+      category: "camping",
+      condition: "fair",
+      description: "Double burner. Gas canisters not included.",
+    },
+    {
+      name: "Step ladder",
+      category: "ladders",
+      condition: "new",
+      description: "Five steps, aluminium, folds flat.",
+    },
+    {
+      name: "Carpet cleaner",
+      category: "cleaning",
+      condition: "fair",
+      description: "Upright, with a hose for stairs and car seats.",
+    },
   ],
 ];
 
@@ -51,11 +111,35 @@ const seedLoans: SeedLoan[] = [
   { borrower: 2, lender: 1, tool: "Lawn mower", from: -2, to: 3, status: "approved" },
   { borrower: 0, lender: 2, tool: "Two-person tent", from: 10, to: 14, status: "approved" },
   // Overdue, with daily reminders from n8n.
-  { borrower: 1, lender: 2, tool: "Step ladder", from: -10, to: -3, status: "approved", reminders: [-2, -1] },
+  {
+    borrower: 1,
+    lender: 2,
+    tool: "Step ladder",
+    from: -10,
+    to: -3,
+    status: "approved",
+    reminders: [-2, -1],
+  },
   { borrower: 0, lender: 1, tool: "Socket set", from: -6, to: -1, status: "approved" },
   // History.
-  { borrower: 2, lender: 0, tool: "Pressure washer", from: -20, to: -15, status: "returned", returnedDay: -15 },
-  { borrower: 0, lender: 1, tool: "Hedge trimmer", from: -14, to: -10, status: "returned", returnedDay: -8 },
+  {
+    borrower: 2,
+    lender: 0,
+    tool: "Pressure washer",
+    from: -20,
+    to: -15,
+    status: "returned",
+    returnedDay: -15,
+  },
+  {
+    borrower: 0,
+    lender: 1,
+    tool: "Hedge trimmer",
+    from: -14,
+    to: -10,
+    status: "returned",
+    returnedDay: -8,
+  },
   { borrower: 2, lender: 0, tool: "Extension ladder", from: 2, to: 3, status: "declined" },
   { borrower: 1, lender: 2, tool: "Camping stove", from: 4, to: 5, status: "cancelled" },
 ];
@@ -89,7 +173,11 @@ export const run = internalMutation({
           usersUpdated++;
         }
       } else {
-        userId = await ctx.db.insert("users", { ...seedUser, email: seedUser.email.toLowerCase(), role: "user" });
+        userId = await ctx.db.insert("users", {
+          ...seedUser,
+          email: seedUser.email.toLowerCase(),
+          role: "user",
+        });
         usersCreated++;
       }
       userIds.push(userId);
@@ -175,7 +263,12 @@ async function reseedLoans(ctx: MutationCtx, userIds: Id<"users">[], today: stri
       events.push({ type: "returned", source: "user", day: seed.returnedDay });
     }
     for (const event of events) {
-      await ctx.db.insert("loanEvents", { loanId, type: event.type, source: event.source, at: at(event.day) });
+      await ctx.db.insert("loanEvents", {
+        loanId,
+        type: event.type,
+        source: event.source,
+        at: at(event.day),
+      });
     }
   }
   return created;

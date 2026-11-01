@@ -66,9 +66,16 @@ describe("ensureUser", () => {
   test("replaces a stored email-address name on the next sign-in", async () => {
     const t = setup();
     await t.run((ctx) =>
-      ctx.db.insert("users", { clerkUserId: "user_bob", email: "bob@example.com", name: "bob@example.com", role: "user" }),
+      ctx.db.insert("users", {
+        clerkUserId: "user_bob",
+        email: "bob@example.com",
+        name: "bob@example.com",
+        role: "user",
+      }),
     );
-    await t.withIdentity({ subject: "user_bob", email: "bob@example.com" }).mutation(api.users.ensureUser, {});
+    await t
+      .withIdentity({ subject: "user_bob", email: "bob@example.com" })
+      .mutation(api.users.ensureUser, {});
 
     expect(await getUsers(t)).toMatchObject([{ name: "bob" }]);
   });

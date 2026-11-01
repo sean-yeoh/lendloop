@@ -31,9 +31,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="flex min-h-full flex-col">
         {/* ClerkProvider must wrap ConvexClientProvider, because Convex reads the Clerk session. */}
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
           {/* The shadcn theme reads our CSS tokens, so Clerk components use the app colours. */}
           <ClerkProvider appearance={{ theme: shadcn }}>
             <ConvexClientProvider>

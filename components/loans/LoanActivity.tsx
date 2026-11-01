@@ -35,7 +35,9 @@ export function LoanActivity({ activity }: { activity: LoanActivityData }) {
         </span>
       )}
       {notification && (
-        <span className={`flex items-center gap-1.5 ${notification.status === "failed" ? "text-destructive" : ""}`}>
+        <span
+          className={`flex items-center gap-1.5 ${notification.status === "failed" ? "text-destructive" : ""}`}
+        >
           <Mail aria-hidden className="size-3.5" />
           {emailLabels[notification.event] ?? "Email"}{" "}
           {notification.status === "sent" && `sent ${ago(notification.at)}`}

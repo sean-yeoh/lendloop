@@ -3,7 +3,12 @@ import { CategoryIcon } from "@/components/tools/CategoryIcon";
 import type { ToolCategory } from "@/lib/tools";
 
 // Decorative example cards. They are not real listings, so screen readers skip them.
-const examples: { name: string; category: ToolCategory; status: string; tone: "secondary" | "outline" }[] = [
+const examples: {
+  name: string;
+  category: ToolCategory;
+  status: string;
+  tone: "secondary" | "outline";
+}[] = [
   { name: "Cordless drill", category: "power_tools", status: "Available", tone: "secondary" },
   { name: "Extension ladder", category: "ladders", status: "On loan until Sat", tone: "outline" },
   { name: "Two-person tent", category: "camping", status: "Available", tone: "secondary" },

@@ -4,7 +4,14 @@ import { useQuery } from "convex/react";
 import { AvailabilityBadge } from "@/components/tools/AvailabilityBadge";
 import { RemoveToolDialog } from "@/components/tools/RemoveToolDialog";
 import { TrustedLenderMark } from "@/components/tools/LenderLabel";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { api } from "@/convex/_generated/api";
 import { categoryLabels } from "@/lib/tools";
 

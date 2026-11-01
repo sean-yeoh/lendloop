@@ -1,5 +1,12 @@
 import type { ReactNode } from "react";
-import { Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import type { Availability } from "@/convex/tools";
 import {
   categoryLabels,
@@ -52,7 +59,9 @@ export function ToolCard({
           {description || "No description."}
         </p>
         {availability.state === "available" && availability.nextBookedFrom && (
-          <p className="text-xs text-muted-foreground">Booked from {formatDate(availability.nextBookedFrom)}</p>
+          <p className="text-xs text-muted-foreground">
+            Booked from {formatDate(availability.nextBookedFrom)}
+          </p>
         )}
       </CardContent>
       {(lender || actions) && (

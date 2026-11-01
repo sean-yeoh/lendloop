@@ -23,7 +23,10 @@ export function HeroActions() {
           <ArrowRight data-icon="inline-end" />
         </Link>
       </Authenticated>
-      <a href="#tools" className={buttonVariants({ size: "lg", variant: "ghost", className: "px-4" })}>
+      <a
+        href="#tools"
+        className={buttonVariants({ size: "lg", variant: "ghost", className: "px-4" })}
+      >
         See what is available
       </a>
     </div>

@@ -15,7 +15,8 @@ export default function IncomingRequestsPage() {
 
   const pending = loans?.filter((loan) => loan.status === "requested") ?? [];
   const out = loans?.filter((loan) => loan.status === "approved") ?? [];
-  const history = loans?.filter((loan) => loan.status !== "requested" && loan.status !== "approved") ?? [];
+  const history =
+    loans?.filter((loan) => loan.status !== "requested" && loan.status !== "approved") ?? [];
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-12">
@@ -41,10 +42,19 @@ export default function IncomingRequestsPage() {
                 person={`Requested by ${loan.borrower.name}`}
                 actions={
                   <>
-                    <LoanActionButton action={api.loans.decline} loanId={loan._id} success="Request declined" variant="outline">
+                    <LoanActionButton
+                      action={api.loans.decline}
+                      loanId={loan._id}
+                      success="Request declined"
+                      variant="outline"
+                    >
                       Decline
                     </LoanActionButton>
-                    <LoanActionButton action={api.loans.approve} loanId={loan._id} success="Request approved">
+                    <LoanActionButton
+                      action={api.loans.approve}
+                      loanId={loan._id}
+                      success="Request approved"
+                    >
                       Approve
                     </LoanActionButton>
                   </>
@@ -61,7 +71,11 @@ export default function IncomingRequestsPage() {
                 today={today}
                 person={`Borrowed by ${loan.borrower.name}`}
                 actions={
-                  <LoanActionButton action={api.loans.markReturned} loanId={loan._id} success="Marked as returned">
+                  <LoanActionButton
+                    action={api.loans.markReturned}
+                    loanId={loan._id}
+                    success="Marked as returned"
+                  >
                     Mark returned
                   </LoanActionButton>
                 }
@@ -80,7 +94,15 @@ export default function IncomingRequestsPage() {
   );
 }
 
-function Section({ title, count, children }: { title: string; count: number; children: ReactNode }) {
+function Section({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count: number;
+  children: ReactNode;
+}) {
   if (count === 0) return null;
   return (
     <section className="flex flex-col gap-3">

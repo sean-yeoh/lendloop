@@ -25,8 +25,18 @@ afterEach(() => {
 async function scenario() {
   const t = convexTest(schema, modules);
   const loanId = await t.run(async (ctx) => {
-    const alice = await ctx.db.insert("users", { clerkUserId: "a", email: "alice@example.com", name: "Alice", role: "user" });
-    const bob = await ctx.db.insert("users", { clerkUserId: "b", email: "bob@example.com", name: "Bob", role: "user" });
+    const alice = await ctx.db.insert("users", {
+      clerkUserId: "a",
+      email: "alice@example.com",
+      name: "Alice",
+      role: "user",
+    });
+    const bob = await ctx.db.insert("users", {
+      clerkUserId: "b",
+      email: "bob@example.com",
+      name: "Bob",
+      role: "user",
+    });
     const toolId = await ctx.db.insert("tools", {
       ownerId: alice,
       name: "Cordless drill",
@@ -87,9 +97,15 @@ describe("GET /n8n/overdue", () => {
   test("rejects unsigned requests, the wrong secret, and a changed query", async () => {
     const { t } = await scenario();
     expect((await t.fetch(`/n8n/overdue?date=${TODAY}`)).status).toBe(401);
-    expect((await signedFetch(t, "GET", `/n8n/overdue?date=${TODAY}`, "", "wrong")).status).toBe(401);
+    expect((await signedFetch(t, "GET", `/n8n/overdue?date=${TODAY}`, "", "wrong")).status).toBe(
+      401,
+    );
 
-    const headers = await signRequest(SECRET, { method: "GET", pathAndQuery: `/n8n/overdue?date=${TODAY}`, body: "" }, Date.now());
+    const headers = await signRequest(
+      SECRET,
+      { method: "GET", pathAndQuery: `/n8n/overdue?date=${TODAY}`, body: "" },
+      Date.now(),
+    );
     expect((await t.fetch("/n8n/overdue?date=2026-11-09", { headers })).status).toBe(401);
   });
 
@@ -132,7 +148,9 @@ describe("POST /n8n/reminders", () => {
     const body = JSON.stringify({ loanId: "nope", date: TODAY });
     expect((await t.fetch("/n8n/reminders", { method: "POST", body })).status).toBe(401);
     expect((await signedFetch(t, "POST", "/n8n/reminders", "{not json")).status).toBe(400);
-    expect((await signedFetch(t, "POST", "/n8n/reminders", JSON.stringify({ date: TODAY }))).status).toBe(400);
+    expect(
+      (await signedFetch(t, "POST", "/n8n/reminders", JSON.stringify({ date: TODAY }))).status,
+    ).toBe(400);
     expect((await signedFetch(t, "POST", "/n8n/reminders", body)).status).toBe(404);
   });
 

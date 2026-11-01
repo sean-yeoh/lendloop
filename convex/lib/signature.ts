@@ -17,10 +17,17 @@ export async function hmacHex(secret: string, message: string): Promise<string> 
     ["sign"],
   );
   const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(message));
-  return Array.from(new Uint8Array(signature), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(signature), (byte) => byte.toString(16).padStart(2, "0")).join(
+    "",
+  );
 }
 
-export function signedMessage(timestamp: string, method: string, pathAndQuery: string, body: string) {
+export function signedMessage(
+  timestamp: string,
+  method: string,
+  pathAndQuery: string,
+  body: string,
+) {
   return `${timestamp}.${method.toUpperCase()}.${pathAndQuery}.${body}`;
 }
 

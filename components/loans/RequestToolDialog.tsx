@@ -46,7 +46,15 @@ export function RequestToolDialog({
   );
 }
 
-function RequestForm({ toolId, today, onDone }: { toolId: Id<"tools">; today: string; onDone: () => void }) {
+function RequestForm({
+  toolId,
+  today,
+  onDone,
+}: {
+  toolId: Id<"tools">;
+  today: string;
+  onDone: () => void;
+}) {
   const booked = useQuery(api.loans.bookedRanges, { toolId });
   const request = useMutation(api.loans.request);
   const [range, setRange] = useState<DateRange | undefined>();
@@ -91,9 +99,11 @@ function RequestForm({ toolId, today, onDone }: { toolId: Id<"tools">; today: st
         <p>
           {startDate && endDate ? (
             <>
-              <span className="text-muted-foreground">Selected:</span> {formatRange(startDate, endDate)}{" "}
+              <span className="text-muted-foreground">Selected:</span>{" "}
+              {formatRange(startDate, endDate)}{" "}
               <span className="text-muted-foreground">
-                ({dayCount(startDate, endDate)} {dayCount(startDate, endDate) === 1 ? "day" : "days"})
+                ({dayCount(startDate, endDate)}{" "}
+                {dayCount(startDate, endDate) === 1 ? "day" : "days"})
               </span>
             </>
           ) : (

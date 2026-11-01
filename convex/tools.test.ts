@@ -103,8 +103,12 @@ describe("update", () => {
     const admin = await addUser(t, "admin", { role: "admin" });
     const toolId = await alice.as.mutation(api.tools.create, drill);
 
-    await expect(bob.as.mutation(api.tools.update, { toolId, ...drill })).rejects.toThrow("Forbidden");
-    await expect(admin.as.mutation(api.tools.update, { toolId, ...drill })).rejects.toThrow("Forbidden");
+    await expect(bob.as.mutation(api.tools.update, { toolId, ...drill })).rejects.toThrow(
+      "Forbidden",
+    );
+    await expect(admin.as.mutation(api.tools.update, { toolId, ...drill })).rejects.toThrow(
+      "Forbidden",
+    );
   });
 
   test("rejects a removed tool", async () => {
@@ -154,7 +158,10 @@ describe("remove", () => {
 
     await alice.as.mutation(api.tools.remove, { toolId });
 
-    const loans = await t.run(async (ctx) => [await ctx.db.get(pending), await ctx.db.get(approved)]);
+    const loans = await t.run(async (ctx) => [
+      await ctx.db.get(pending),
+      await ctx.db.get(approved),
+    ]);
     expect(loans.map((loan) => loan?.status)).toEqual(["declined", "approved"]);
     const events = await t.run((ctx) => ctx.db.query("loanEvents").collect());
     expect(events).toMatchObject([{ loanId: pending, type: "declined", source: "user" }]);
@@ -232,11 +239,31 @@ describe("list", () => {
     const late = await make("late");
     const returned = await make("returned");
 
-    await addLoan(t, requested, bob.id, { startDate: "2026-11-09", endDate: "2026-11-11", status: "requested" });
-    await addLoan(t, future, bob.id, { startDate: "2026-11-11", endDate: "2026-11-12", status: "approved" });
-    await addLoan(t, out, bob.id, { startDate: "2026-11-10", endDate: "2026-11-10", status: "approved" });
-    await addLoan(t, late, bob.id, { startDate: "2026-11-01", endDate: "2026-11-09", status: "approved" });
-    await addLoan(t, returned, bob.id, { startDate: "2026-11-01", endDate: "2026-11-09", status: "returned" });
+    await addLoan(t, requested, bob.id, {
+      startDate: "2026-11-09",
+      endDate: "2026-11-11",
+      status: "requested",
+    });
+    await addLoan(t, future, bob.id, {
+      startDate: "2026-11-11",
+      endDate: "2026-11-12",
+      status: "approved",
+    });
+    await addLoan(t, out, bob.id, {
+      startDate: "2026-11-10",
+      endDate: "2026-11-10",
+      status: "approved",
+    });
+    await addLoan(t, late, bob.id, {
+      startDate: "2026-11-01",
+      endDate: "2026-11-09",
+      status: "approved",
+    });
+    await addLoan(t, returned, bob.id, {
+      startDate: "2026-11-01",
+      endDate: "2026-11-09",
+      status: "returned",
+    });
 
     const tools = await bob.as.query(api.tools.list, { today: TODAY });
     const byId = new Map(tools.map((tool) => [tool._id, tool.availability]));
@@ -257,7 +284,11 @@ describe("mine", () => {
     await alice.as.mutation(api.tools.create, drill);
     const removed = await alice.as.mutation(api.tools.create, { ...drill, name: "Old saw" });
     await alice.as.mutation(api.tools.remove, { toolId: removed });
-    await bob.as.mutation(api.tools.create, { ...drill, name: "Bob's ladder", category: "ladders" });
+    await bob.as.mutation(api.tools.create, {
+      ...drill,
+      name: "Bob's ladder",
+      category: "ladders",
+    });
 
     const tools = await alice.as.query(api.tools.mine, { today: TODAY });
     expect(tools).toMatchObject([{ name: "Cordless drill", availability: { state: "available" } }]);

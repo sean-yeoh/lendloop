@@ -5,7 +5,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { RequestToolDialog } from "@/components/loans/RequestToolDialog";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { api } from "@/convex/_generated/api";
 import { useLocalToday } from "@/hooks/useLocalToday";
 import { categoryLabels, isToolCategory, type ToolCategory } from "@/lib/tools";
@@ -25,10 +31,7 @@ export function ToolsBrowser({ category }: { category?: ToolCategory }) {
   // Skip while signed out. On sign-out, the query would otherwise re-run without a token.
   const { isAuthenticated } = useConvexAuth();
   const me = useQuery(api.users.me);
-  const tools = useQuery(
-    api.tools.list,
-    isAuthenticated && today ? { today, category } : "skip",
-  );
+  const tools = useQuery(api.tools.list, isAuthenticated && today ? { today, category } : "skip");
 
   function onCategoryChange(value: string | null) {
     router.replace(isToolCategory(value) ? `${pathname}?category=${value}` : pathname);

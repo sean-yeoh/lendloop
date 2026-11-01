@@ -222,7 +222,6 @@ async function loansForTool(ctx: QueryCtx, toolId: Id<"tools">, status: Doc<"loa
     .collect();
 }
 
-
 function loanFields(loan: Doc<"loans">) {
   return {
     _id: loan._id,
@@ -243,9 +242,12 @@ async function loanActivity(ctx: QueryCtx, loanId: Id<"loans">) {
     .collect();
   const reminders = events.filter((event) => event.type === "reminder_sent");
 
-  let notification: { event: Doc<"loanEvents">["type"]; status: Doc<"notifications">["status"]; at: number } | null =
-    null;
-  for (const event of [...events].reverse()) {
+  let notification: {
+    event: Doc<"loanEvents">["type"];
+    status: Doc<"notifications">["status"];
+    at: number;
+  } | null = null;
+  for (const event of events.toReversed()) {
     const row = await ctx.db
       .query("notifications")
       .withIndex("by_loanEvent", (q) => q.eq("loanEventId", event._id))

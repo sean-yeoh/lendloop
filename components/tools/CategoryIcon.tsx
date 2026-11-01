@@ -22,7 +22,13 @@ const icons: Record<ToolCategory, LucideIcon> = {
   other: Package,
 };
 
-export function CategoryIcon({ category, className }: { category: ToolCategory; className?: string }) {
+export function CategoryIcon({
+  category,
+  className,
+}: {
+  category: ToolCategory;
+  className?: string;
+}) {
   const Icon = icons[category];
   return <Icon aria-hidden className={className} />;
 }

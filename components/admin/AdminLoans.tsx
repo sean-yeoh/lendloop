@@ -4,8 +4,21 @@ import { useQuery } from "convex/react";
 import { useState } from "react";
 import { LoanActivity } from "@/components/loans/LoanActivity";
 import { LoanStatusBadge } from "@/components/loans/LoanStatusBadge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { api } from "@/convex/_generated/api";
 import { formatRange, isOverdue } from "@/lib/loans";
 
@@ -39,7 +52,11 @@ export function AdminLoans({ today }: { today: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Select items={filters} value={filter} onValueChange={(value) => value && setFilter(value as Filter)}>
+      <Select
+        items={filters}
+        value={filter}
+        onValueChange={(value) => value && setFilter(value as Filter)}
+      >
         <SelectTrigger aria-label="Filter loans" className="w-40">
           <SelectValue />
         </SelectTrigger>

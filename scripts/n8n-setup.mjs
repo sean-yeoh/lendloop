@@ -47,7 +47,14 @@ const credentials = [
     name: "LendLoop Mailpit SMTP",
     type: "smtp",
     // Mailpit in the compose network: no TLS and no login.
-    data: { host: "mailpit", port: 1025, secure: false, disableStartTls: true, user: "", password: "" },
+    data: {
+      host: "mailpit",
+      port: 1025,
+      secure: false,
+      disableStartTls: true,
+      user: "",
+      password: "",
+    },
   },
 ];
 n8nWithFile("/tmp/lendloop-credentials.json", JSON.stringify(credentials), "import:credentials");
@@ -56,7 +63,14 @@ log("n8n: imported 3 credentials");
 const workflows = readdirSync(WORKFLOW_DIR).filter((file) => file.endsWith(".json"));
 execFileSync(engine, ["exec", container, "rm", "-rf", "/tmp/lendloop-workflows"]);
 execFileSync(engine, ["cp", WORKFLOW_DIR, `${container}:/tmp/lendloop-workflows`]);
-run(engine, ["exec", container, "n8n", "import:workflow", "--separate", "--input=/tmp/lendloop-workflows"]);
+run(engine, [
+  "exec",
+  container,
+  "n8n",
+  "import:workflow",
+  "--separate",
+  "--input=/tmp/lendloop-workflows",
+]);
 log(`n8n: imported ${workflows.length} workflows`);
 
 // 4. Publish, then restart, because n8n reads published workflows at startup.
@@ -117,7 +131,14 @@ function convexEnvSet(name, value) {
 function n8nWithFile(file, content, command) {
   execFileSync(
     engine,
-    ["exec", "-i", container, "sh", "-c", `cat > ${file} && n8n ${command} --input=${file}; status=$?; rm -f ${file}; exit $status`],
+    [
+      "exec",
+      "-i",
+      container,
+      "sh",
+      "-c",
+      `cat > ${file} && n8n ${command} --input=${file}; status=$?; rm -f ${file}; exit $status`,
+    ],
     { input: content, stdio: ["pipe", "ignore", "inherit"] },
   );
 }

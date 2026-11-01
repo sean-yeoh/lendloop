@@ -35,10 +35,16 @@ export function SiteHeader() {
           <div className="hidden items-center gap-1 md:flex">
             <NavLink href="/tools">Tools</NavLink>
             <NavLink href="/my-listings">My listings</NavLink>
-            <NavLink href="/requests" badge={<CountBadge count={counts.myOverdue} label="overdue" tone="destructive" />}>
+            <NavLink
+              href="/requests"
+              badge={<CountBadge count={counts.myOverdue} label="overdue" tone="destructive" />}
+            >
               My requests
             </NavLink>
-            <NavLink href="/incoming" badge={<CountBadge count={counts.incomingPending} label="waiting for your answer" />}>
+            <NavLink
+              href="/incoming"
+              badge={<CountBadge count={counts.incomingPending} label="waiting for your answer" />}
+            >
               Incoming
             </NavLink>
           </div>
@@ -56,7 +62,15 @@ function AdminLink() {
   return <NavLink href="/admin">Admin</NavLink>;
 }
 
-function NavLink({ href, badge, children }: { href: string; badge?: ReactNode; children: ReactNode }) {
+function NavLink({
+  href,
+  badge,
+  children,
+}: {
+  href: string;
+  badge?: ReactNode;
+  children: ReactNode;
+}) {
   const pathname = usePathname();
   const active = pathname === href || pathname.startsWith(`${href}/`);
   return (

@@ -4,7 +4,14 @@ import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { errorMessage } from "@/lib/errors";
@@ -16,7 +23,9 @@ export function AdminUsers() {
   async function onToggle(userId: Id<"users">, name: string, trusted: boolean) {
     try {
       await setTrusted({ userId, trusted });
-      toast.success(trusted ? `${name} is now a Trusted Lender` : `${name} is no longer a Trusted Lender`);
+      toast.success(
+        trusted ? `${name} is now a Trusted Lender` : `${name} is no longer a Trusted Lender`,
+      );
     } catch (error) {
       toast.error(errorMessage(error));
     }
@@ -25,8 +34,8 @@ export function AdminUsers() {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">
-        Trusted Lender is a badge that borrowers see next to the lender&apos;s name. It changes no loan
-        rules.
+        Trusted Lender is a badge that borrowers see next to the lender&apos;s name. It changes no
+        loan rules.
       </p>
       <div className="rounded-xl bg-card ring-1 ring-foreground/10">
         <Table>

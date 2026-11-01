@@ -30,7 +30,12 @@ async function scenario() {
   const t = convexTest(schema, modules);
   const add = (key: string, role: Doc<"users">["role"] = "user") =>
     t.run((ctx) =>
-      ctx.db.insert("users", { clerkUserId: `user_${key}`, email: `${key}@example.com`, name: key, role }),
+      ctx.db.insert("users", {
+        clerkUserId: `user_${key}`,
+        email: `${key}@example.com`,
+        name: key,
+        role,
+      }),
     );
   await add("alice");
   await add("bob");
@@ -45,7 +50,12 @@ async function scenario() {
     description: "",
   });
   const request = () =>
-    bob.mutation(api.loans.request, { toolId, startDate: "2026-11-12", endDate: "2026-11-14", today: TODAY });
+    bob.mutation(api.loans.request, {
+      toolId,
+      startDate: "2026-11-12",
+      endDate: "2026-11-14",
+      today: TODAY,
+    });
   return { t, alice, bob, admin, request };
 }
 
@@ -62,7 +72,8 @@ function stubFetch(...statuses: number[]) {
   return calls;
 }
 
-const notifications = (t: ReturnType<typeof convexTest>) => t.run((ctx) => ctx.db.query("notifications").collect());
+const notifications = (t: ReturnType<typeof convexTest>) =>
+  t.run((ctx) => ctx.db.query("notifications").collect());
 
 describe("notification delivery", () => {
   test("sends a signed payload to n8n with only the recipient's email", async () => {
@@ -146,7 +157,10 @@ describe("notification delivery", () => {
 
     expect(calls).toHaveLength(0);
     expect(await notifications(t)).toMatchObject([
-      { status: "failed", lastError: "N8N_NOTIFY_URL or N8N_NOTIFY_SECRET is not set on the Convex deployment" },
+      {
+        status: "failed",
+        lastError: "N8N_NOTIFY_URL or N8N_NOTIFY_SECRET is not set on the Convex deployment",
+      },
     ]);
   });
 });
@@ -161,9 +175,9 @@ describe("admin view", () => {
     const [failed] = await admin.query(api.notifications.listProblems, {});
     expect(failed).toMatchObject({ status: "failed", event: "requested", tool: "Cordless drill" });
     await expect(bob.query(api.notifications.listProblems, {})).rejects.toThrow("Forbidden");
-    await expect(bob.mutation(api.notifications.retry, { notificationId: failed!._id })).rejects.toThrow(
-      "Forbidden",
-    );
+    await expect(
+      bob.mutation(api.notifications.retry, { notificationId: failed!._id }),
+    ).rejects.toThrow("Forbidden");
 
     const calls = stubFetch(200);
     await admin.mutation(api.notifications.retry, { notificationId: failed!._id });

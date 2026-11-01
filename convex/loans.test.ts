@@ -18,7 +18,12 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const drill = { name: "Cordless drill", category: "power_tools", condition: "good", description: "" } as const;
+const drill = {
+  name: "Cordless drill",
+  category: "power_tools",
+  condition: "good",
+  description: "",
+} as const;
 
 function setup() {
   return convexTest(schema, modules);
@@ -115,7 +120,12 @@ describe("request", () => {
   test("accepts a client date one day from the server date, and rejects more", async () => {
     const { bob, toolId } = await scenario();
     const ask = (today: string) =>
-      bob.as.mutation(api.loans.request, { toolId, startDate: "2026-11-20", endDate: "2026-11-20", today });
+      bob.as.mutation(api.loans.request, {
+        toolId,
+        startDate: "2026-11-20",
+        endDate: "2026-11-20",
+        today,
+      });
 
     await expect(ask("2026-11-11")).resolves.toBeDefined();
     await expect(ask("2026-11-08")).rejects.toThrow("today does not match the current date");
@@ -313,7 +323,10 @@ describe("signed out", () => {
 
     expect(await t.query(api.loans.myRequests, {})).toEqual([]);
     expect(await t.query(api.loans.incoming, {})).toEqual([]);
-    expect(await t.query(api.loans.navCounts, { today: TODAY })).toEqual({ incomingPending: 0, myOverdue: 0 });
+    expect(await t.query(api.loans.navCounts, { today: TODAY })).toEqual({
+      incomingPending: 0,
+      myOverdue: 0,
+    });
     await expect(t.mutation(api.loans.cancel, { loanId })).rejects.toThrow("Not signed in");
     await expect(t.query(api.loans.listAll, {})).rejects.toThrow("Not signed in");
   });
@@ -326,7 +339,9 @@ describe("navCounts", () => {
     await request(carol, "2026-11-20", "2026-11-21");
     // An approved loan that ended yesterday is overdue. A returned one is not.
     const insertLoan = (fields: Pick<Doc<"loans">, "startDate" | "endDate" | "status">) =>
-      t.run((ctx) => ctx.db.insert("loans", { toolId, borrowerId: bob.id, lenderId: alice.id, ...fields }));
+      t.run((ctx) =>
+        ctx.db.insert("loans", { toolId, borrowerId: bob.id, lenderId: alice.id, ...fields }),
+      );
     await insertLoan({ startDate: "2026-11-01", endDate: "2026-11-09", status: "approved" });
     await insertLoan({ startDate: "2026-11-01", endDate: "2026-11-05", status: "returned" });
     await insertLoan({ startDate: "2026-11-09", endDate: "2026-11-10", status: "approved" });
@@ -350,8 +365,18 @@ describe("loan activity", () => {
     const day = 24 * 60 * 60 * 1000;
     const now = Date.now();
     await t.run(async (ctx) => {
-      await ctx.db.insert("loanEvents", { loanId, type: "reminder_sent", source: "n8n", at: now - day });
-      await ctx.db.insert("loanEvents", { loanId, type: "reminder_sent", source: "n8n", at: now - 2 * day });
+      await ctx.db.insert("loanEvents", {
+        loanId,
+        type: "reminder_sent",
+        source: "n8n",
+        at: now - day,
+      });
+      await ctx.db.insert("loanEvents", {
+        loanId,
+        type: "reminder_sent",
+        source: "n8n",
+        at: now - 2 * day,
+      });
     });
 
     const [loan] = await bob.as.query(api.loans.myRequests, {});

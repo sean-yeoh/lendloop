@@ -167,7 +167,11 @@ async function getActiveTool(ctx: MutationCtx, toolId: Id<"tools">) {
 }
 
 // A tool is out when an approved loan has started. If that loan ended before today, it is overdue.
-async function getAvailability(ctx: QueryCtx, toolId: Id<"tools">, today: string): Promise<Availability> {
+async function getAvailability(
+  ctx: QueryCtx,
+  toolId: Id<"tools">,
+  today: string,
+): Promise<Availability> {
   const approved = await ctx.db
     .query("loans")
     .withIndex("by_tool_status", (q) => q.eq("toolId", toolId).eq("status", "approved"))
@@ -182,6 +186,6 @@ async function getAvailability(ctx: QueryCtx, toolId: Id<"tools">, today: string
   const upcoming = approved
     .map((loan) => loan.startDate)
     .filter((startDate) => startDate > today)
-    .sort();
+    .toSorted();
   return upcoming[0] ? { state: "available", nextBookedFrom: upcoming[0] } : { state: "available" };
 }

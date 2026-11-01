@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { SIGNATURE_HEADER, TIMESTAMP_HEADER, hmacHex, signRequest, verifyRequest } from "./signature";
+import {
+  SIGNATURE_HEADER,
+  TIMESTAMP_HEADER,
+  hmacHex,
+  signRequest,
+  verifyRequest,
+} from "./signature";
 
 const SECRET = "test-secret";
 const NOW = Date.parse("2026-11-10T12:00:00Z");
@@ -23,7 +29,11 @@ describe("signature", () => {
   });
 
   test("rejects a changed body, method, or path", async () => {
-    for (const change of [{ body: '{"loanId":"y"}' }, { method: "GET" }, { pathAndQuery: "/n8n/overdue" }]) {
+    for (const change of [
+      { body: '{"loanId":"y"}' },
+      { method: "GET" },
+      { pathAndQuery: "/n8n/overdue" },
+    ]) {
       expect(await verifyRequest(SECRET, await signed(change), NOW)).toEqual({
         ok: false,
         reason: "Invalid signature",

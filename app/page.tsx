@@ -1,4 +1,12 @@
-import { BadgeCheck, BellRing, CalendarRange, EyeOff, PackagePlus, Repeat, Search } from "lucide-react";
+import {
+  BadgeCheck,
+  BellRing,
+  CalendarRange,
+  EyeOff,
+  PackagePlus,
+  Repeat,
+  Search,
+} from "lucide-react";
 import { CtaAction, HeroActions } from "@/components/home/HeroActions";
 import { HeroPreview } from "@/components/home/HeroPreview";
 import { PublicToolList } from "@/components/home/PublicToolList";
@@ -61,8 +69,8 @@ export default function Home() {
               Borrow what you need. <span className="text-primary">Lend what you don&apos;t.</span>
             </h1>
             <p className="max-w-prose text-lg text-pretty text-muted-foreground">
-              A drill or a ladder can sit in a garage for months. LendLoop lets neighbors list the tools
-              they can lend, borrow them for a few days, and keep track of every loan.
+              A drill or a ladder can sit in a garage for months. LendLoop lets neighbors list the
+              tools they can lend, borrow them for a few days, and keep track of every loan.
             </p>
             <HeroActions />
           </div>
@@ -90,7 +98,10 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="tools" className="mx-auto flex w-full max-w-5xl scroll-mt-8 flex-col gap-6 px-6 py-16">
+      <section
+        id="tools"
+        className="mx-auto flex w-full max-w-5xl scroll-mt-8 flex-col gap-6 px-6 py-16"
+      >
         <div className="flex flex-col gap-2">
           <h2 className="text-2xl font-semibold tracking-tight">Tools in the neighborhood</h2>
           <p className="text-muted-foreground">Sign in to see availability and request a tool.</p>
@@ -101,7 +112,10 @@ export default function Home() {
       <section className="mx-auto w-full max-w-5xl px-6 pb-16">
         <ul className="grid gap-4 sm:grid-cols-2">
           {features.map((feature) => (
-            <li key={feature.title} className="flex gap-4 rounded-xl bg-card p-5 ring-1 ring-foreground/10 transition-colors hover:ring-primary/40">
+            <li
+              key={feature.title}
+              className="flex gap-4 rounded-xl bg-card p-5 ring-1 ring-foreground/10 transition-colors hover:ring-primary/40"
+            >
               <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <feature.icon aria-hidden className="size-5" />
               </span>
@@ -117,8 +131,12 @@ export default function Home() {
       <section className="mx-auto w-full max-w-5xl px-6 pb-20">
         <div className="flex flex-col items-start gap-6 rounded-2xl bg-linear-to-br from-primary to-[color-mix(in_oklch,var(--primary),black_25%)] p-8 text-primary-foreground shadow-lg sm:flex-row sm:items-center sm:justify-between sm:p-10">
           <div className="flex flex-col gap-2">
-            <h2 className="text-2xl font-semibold tracking-tight">Have a ladder you use twice a year?</h2>
-            <p className="opacity-80">Lend it to a neighbor. Borrow something back when you need it.</p>
+            <h2 className="text-2xl font-semibold tracking-tight">
+              Have a ladder you use twice a year?
+            </h2>
+            <p className="opacity-80">
+              Lend it to a neighbor. Borrow something back when you need it.
+            </p>
           </div>
           <CtaAction />
         </div>

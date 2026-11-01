@@ -22,7 +22,10 @@ export default function AdminPage() {
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight">Admin</h1>
         {me?.role === "admin" && (
-          <p className="text-muted-foreground">View all loans, remove listings, manage Trusted Lenders, and check notification delivery.</p>
+          <p className="text-muted-foreground">
+            View all loans, remove listings, manage Trusted Lenders, and check notification
+            delivery.
+          </p>
         )}
       </div>
       {me?.role === "admin" ? (

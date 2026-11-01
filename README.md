@@ -485,7 +485,8 @@ Run `make` to see all commands:
 | `make seed` | Create the test users, tools, and loans (step 7) |
 | `make n8n-setup` | Create the signing secrets, and import the n8n credentials and workflows (step 8) |
 | `make clerk-setup` | Copy the Clerk keys to Convex, and turn off Clerk's own Delete account (step 9) |
-| `make test` / `make check` | Run the tests, or type-check, lint, and test |
+| `make format` | Format the code with oxfmt |
+| `make test` / `make check` | Run the tests, or check formatting, type-check, lint, and test |
 | `make admin-grant EMAIL=…` / `make admin-revoke EMAIL=…` | Change admin rights (step 6) |
 
 **If a port is in use** (for example, another project's Mailpit on 8025), choose another host port: `make dev MAILPIT_HOST_PORT=8026` or `make container-up N8N_HOST_PORT=5679`. To keep the setting on your machine, put it in `Makefile.local`, which Git ignores:
@@ -497,6 +498,12 @@ MAILPIT_HOST_PORT = 8026
 Without Make, run `pnpm exec convex dev` and `pnpm dev` in two terminals, and `docker compose up -d` (or `podman compose up -d`).
 
 To open the local Convex dashboard in the browser, run `pnpm exec convex dashboard`.
+
+### Formatting and linting
+
+- **[oxfmt](https://oxc.rs/docs/guide/usage/formatter.html)** formats the code (`.oxfmtrc.json`): Prettier-compatible output, 100-character lines, and Tailwind classes sorted, also inside `cn()` and `cva()`. Run `make format` before you commit. `make check` fails on unformatted files.
+- **Not formatted:** Markdown, because aligned tables would rewrite every row of a table when one cell changes. Also `components/ui` (shadcn CLI output, kept as generated), `convex/_generated`, and the exported n8n workflows.
+- **[oxlint](https://oxc.rs/docs/guide/usage/linter.html)** runs first (`.oxlintrc.json`), then ESLint with `eslint-config-next` for the Next.js and React Hooks rules. `eslint-plugin-oxlint` turns off the ESLint rules that oxlint already checks. `pnpm lint` runs both.
 
 ### UI components
 

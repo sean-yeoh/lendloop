@@ -15,6 +15,8 @@ const convex = new ConvexReactClient(convexUrl);
 
 export function ConvexClientProvider({ children }: { children: ReactNode }) {
   return (
+    // The provider calls the hook itself, as the Convex docs show.
+    // oxlint-disable-next-line react/hooks
     <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
       <Authenticated>
         <EnsureUser />

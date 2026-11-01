@@ -52,10 +52,12 @@ test("seeds loans in every status, relative to today", async () => {
     new Set(["requested", "approved", "declined", "cancelled", "returned"]),
   );
   const overdue = loans.filter((loan) => loan.status === "approved" && loan.endDate < TODAY);
-  expect(overdue.map((loan) => loan.endDate).sort()).toEqual(["2026-11-07", "2026-11-09"]);
+  expect(overdue.map((loan) => loan.endDate).toSorted()).toEqual(["2026-11-07", "2026-11-09"]);
 
   const events = await t.run((ctx) => ctx.db.query("loanEvents").collect());
-  expect(events.filter((event) => event.type === "reminder_sent" && event.source === "n8n")).toHaveLength(2);
+  expect(
+    events.filter((event) => event.type === "reminder_sent" && event.source === "n8n"),
+  ).toHaveLength(2);
 });
 
 test("keeps loans that involve users outside the seed", async () => {
@@ -101,7 +103,12 @@ test("renames an existing seed user", async () => {
 test("keeps an existing user's role and does not duplicate their tools", async () => {
   const t = setup();
   await t.run((ctx) =>
-    ctx.db.insert("users", { clerkUserId: "user_alice", email: "alice@example.com", name: "Alice", role: "admin" }),
+    ctx.db.insert("users", {
+      clerkUserId: "user_alice",
+      email: "alice@example.com",
+      name: "Alice",
+      role: "admin",
+    }),
   );
 
   await t.mutation(internal.seed.run, { users: users.slice(0, 1), today: TODAY });

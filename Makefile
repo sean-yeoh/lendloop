@@ -11,7 +11,7 @@ export N8N_HOST_PORT ?= 5678
 export MAILPIT_HOST_PORT ?= 8025
 
 .DEFAULT_GOAL := help
-.PHONY: help install dev container-up container-down container-logs clerk-setup n8n-setup seed test check admin-grant admin-revoke
+.PHONY: help install dev container-up container-down container-logs format clerk-setup n8n-setup seed test check admin-grant admin-revoke
 
 help: ## Show this list
 	@grep -hE '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-16s %s\n", $$1, $$2}'
@@ -43,7 +43,11 @@ seed: ## Create the test users, tools, and loans (convex dev must run)
 test: ## Run the tests once
 	pnpm test:once
 
-check: ## Type-check, lint, and test
+format: ## Format the code with oxfmt
+	pnpm format
+
+check: ## Check formatting, type-check, lint, and test
+	pnpm format:check
 	pnpm exec tsc --noEmit
 	pnpm lint
 	pnpm test:once
