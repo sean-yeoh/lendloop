@@ -3,6 +3,7 @@
 import { useConvexAuth, useQuery } from "convex/react";
 import { AdminListings } from "@/components/admin/AdminListings";
 import { AdminLoans } from "@/components/admin/AdminLoans";
+import { AdminNotifications } from "@/components/admin/AdminNotifications";
 import { AdminUsers } from "@/components/admin/AdminUsers";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
@@ -21,7 +22,7 @@ export default function AdminPage() {
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight">Admin</h1>
         {me?.role === "admin" && (
-          <p className="text-muted-foreground">View all loans, remove listings, and manage Trusted Lenders.</p>
+          <p className="text-muted-foreground">View all loans, remove listings, manage Trusted Lenders, and check notification delivery.</p>
         )}
       </div>
       {me?.role === "admin" ? (
@@ -30,6 +31,7 @@ export default function AdminPage() {
             <TabsTrigger value="loans">Loans</TabsTrigger>
             <TabsTrigger value="listings">Listings</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="notifications">Notifications</TabsTrigger>
           </TabsList>
           <TabsContent value="loans">
             <AdminLoans today={today} />
@@ -39,6 +41,9 @@ export default function AdminPage() {
           </TabsContent>
           <TabsContent value="users">
             <AdminUsers />
+          </TabsContent>
+          <TabsContent value="notifications">
+            <AdminNotifications />
           </TabsContent>
         </Tabs>
       ) : (
