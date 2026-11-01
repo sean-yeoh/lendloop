@@ -8,10 +8,15 @@
  * @module
  */
 
+import type * as automation from "../automation.js";
+import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_dates from "../lib/dates.js";
+import type * as lib_events from "../lib/events.js";
 import type * as lib_limits from "../lib/limits.js";
+import type * as lib_signature from "../lib/signature.js";
 import type * as loans from "../loans.js";
+import type * as notifications from "../notifications.js";
 import type * as seed from "../seed.js";
 import type * as tools from "../tools.js";
 import type * as users from "../users.js";
@@ -23,10 +28,15 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  automation: typeof automation;
+  http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/dates": typeof lib_dates;
+  "lib/events": typeof lib_events;
   "lib/limits": typeof lib_limits;
+  "lib/signature": typeof lib_signature;
   loans: typeof loans;
+  notifications: typeof notifications;
   seed: typeof seed;
   tools: typeof tools;
   users: typeof users;

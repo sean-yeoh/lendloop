@@ -43,6 +43,8 @@ export const loanEventType = v.union(
 
 export const loanEventSource = v.union(v.literal("user"), v.literal("n8n"));
 
+export const notificationStatus = v.union(v.literal("pending"), v.literal("sent"), v.literal("failed"));
+
 export default defineSchema({
   users: defineTable({
     clerkUserId: v.string(),
@@ -91,5 +93,21 @@ export default defineSchema({
     type: loanEventType,
     source: loanEventSource,
     at: v.number(),
-  }).index("by_loan", ["loanId"]),
+    // Set for write-backs from n8n, so a retried request does not create a second event.
+    idempotencyKey: v.optional(v.string()),
+  })
+    .index("by_loan", ["loanId"])
+    .index("by_idempotencyKey", ["idempotencyKey"]),
+
+  // Outbox for n8n request notifications. A row is written in the same transaction as the loan
+  // event, then a scheduled action delivers it, with retries. Failed rows stay visible to admins.
+  notifications: defineTable({
+    loanEventId: v.id("loanEvents"),
+    status: notificationStatus,
+    attempts: v.number(),
+    lastError: v.optional(v.string()),
+    sentAt: v.optional(v.number()),
+  })
+    .index("by_loanEvent", ["loanEventId"])
+    .index("by_status", ["status"]),
 });

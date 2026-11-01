@@ -3,6 +3,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { getCurrentUser, requireAdmin, requireUser } from "./lib/auth";
 import { assertClientToday, assertDate, rangesOverlap } from "./lib/dates";
+import { recordLoanEvent } from "./lib/events";
 
 // Lists are capped until they are paginated.
 const LIST_LIMIT = 200;
@@ -38,7 +39,7 @@ export const request = mutation({
       endDate,
       status: "requested",
     });
-    await addEvent(ctx, loanId, "requested");
+    await recordLoanEvent(ctx, loanId, "requested");
     return loanId;
   },
 });
@@ -56,12 +57,12 @@ export const approve = mutation({
     }
 
     await ctx.db.patch(loanId, { status: "approved" });
-    await addEvent(ctx, loanId, "approved");
+    await recordLoanEvent(ctx, loanId, "approved");
 
     for (const other of await loansForTool(ctx, loan.toolId, "requested")) {
       if (other._id !== loanId && rangesOverlap(other, loan)) {
         await ctx.db.patch(other._id, { status: "declined" });
-        await addEvent(ctx, other._id, "declined");
+        await recordLoanEvent(ctx, other._id, "declined");
       }
     }
   },
@@ -73,7 +74,7 @@ export const decline = mutation({
     const loan = await getLoanFor(ctx, loanId, "lender");
     assertStatus(loan, "requested");
     await ctx.db.patch(loanId, { status: "declined" });
-    await addEvent(ctx, loanId, "declined");
+    await recordLoanEvent(ctx, loanId, "declined");
   },
 });
 
@@ -83,7 +84,7 @@ export const cancel = mutation({
     const loan = await getLoanFor(ctx, loanId, "borrower");
     assertStatus(loan, "requested");
     await ctx.db.patch(loanId, { status: "cancelled" });
-    await addEvent(ctx, loanId, "cancelled");
+    await recordLoanEvent(ctx, loanId, "cancelled");
   },
 });
 
@@ -94,7 +95,7 @@ export const markReturned = mutation({
     const loan = await getLoanFor(ctx, loanId, "lender");
     assertStatus(loan, "approved");
     await ctx.db.patch(loanId, { status: "returned", returnedAt: Date.now() });
-    await addEvent(ctx, loanId, "returned");
+    await recordLoanEvent(ctx, loanId, "returned");
   },
 });
 
@@ -218,9 +219,6 @@ async function loansForTool(ctx: QueryCtx, toolId: Id<"tools">, status: Doc<"loa
     .collect();
 }
 
-async function addEvent(ctx: MutationCtx, loanId: Id<"loans">, type: Doc<"loanEvents">["type"]) {
-  await ctx.db.insert("loanEvents", { loanId, type, source: "user", at: Date.now() });
-}
 
 function loanFields(loan: Doc<"loans">) {
   return {

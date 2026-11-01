@@ -3,6 +3,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { getCurrentUser, requireUser } from "./lib/auth";
 import { assertDate } from "./lib/dates";
+import { recordLoanEvent } from "./lib/events";
 import { DESCRIPTION_MAX, NAME_MAX } from "./lib/limits";
 import { toolCategory, toolCondition } from "./schema";
 
@@ -131,10 +132,9 @@ export const remove = mutation({
       .query("loans")
       .withIndex("by_tool_status", (q) => q.eq("toolId", toolId).eq("status", "requested"))
       .collect();
-    const now = Date.now();
     for (const loan of pending) {
       await ctx.db.patch(loan._id, { status: "declined" });
-      await ctx.db.insert("loanEvents", { loanId: loan._id, type: "declined", source: "user", at: now });
+      await recordLoanEvent(ctx, loan._id, "declined");
     }
   },
 });
