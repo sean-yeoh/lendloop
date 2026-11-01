@@ -119,3 +119,43 @@ test("keeps an existing user's role and does not duplicate their tools", async (
   expect(tools).toHaveLength(4);
   expect(tools.every((tool) => tool.ownerId === alice._id)).toBe(true);
 });
+
+test("creates the seed admin with the admin role, restores it, and changes no other role", async () => {
+  const t = setup();
+  const admin = {
+    clerkUserId: "user_admin",
+    email: "admin+clerk_test@example.com",
+    name: "Admin User",
+    role: "admin" as const,
+  };
+  const withAdmin = [...users, admin];
+
+  expect(await t.mutation(internal.seed.run, { users: withAdmin, today: TODAY })).toMatchObject({
+    usersCreated: 4,
+    toolsCreated: 12,
+  });
+  const roles = async () =>
+    Object.fromEntries(
+      (await t.run((ctx) => ctx.db.query("users").collect())).map((user) => [user.name, user.role]),
+    );
+  expect(await roles()).toEqual({
+    "Alice Smith": "user",
+    "Bob Jones": "user",
+    "Carol Brown": "user",
+    "Admin User": "admin",
+  });
+  // The admin owns no tools.
+  const tools = await t.run((ctx) => ctx.db.query("tools").collect());
+  const adminRow = (await t.run((ctx) => ctx.db.query("users").collect())).find(
+    (user) => user.name === "Admin User",
+  )!;
+  expect(tools.some((tool) => tool.ownerId === adminRow._id)).toBe(false);
+
+  // Someone revoked the role: the next seed run restores it.
+  await t.run((ctx) => ctx.db.patch(adminRow._id, { role: "user" }));
+  expect(await t.mutation(internal.seed.run, { users: withAdmin, today: TODAY })).toMatchObject({
+    usersCreated: 0,
+    usersUpdated: 1,
+  });
+  expect((await roles())["Admin User"]).toBe("admin");
+});

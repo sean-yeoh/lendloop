@@ -148,7 +148,15 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const run = internalMutation({
   args: {
-    users: v.array(v.object({ clerkUserId: v.string(), email: v.string(), name: v.string() })),
+    users: v.array(
+      v.object({
+        clerkUserId: v.string(),
+        email: v.string(),
+        name: v.string(),
+        // Set for the seed admin account only.
+        role: v.optional(v.literal("admin")),
+      }),
+    ),
     // The caller's local date, so the loan dates match what the app shows as today.
     today: v.string(),
   },
@@ -165,18 +173,24 @@ export const run = internalMutation({
         .query("users")
         .withIndex("by_clerkUserId", (q) => q.eq("clerkUserId", seedUser.clerkUserId))
         .unique();
+      // The seed admin account keeps its admin role. Other roles are never changed, and no one
+      // is demoted.
+      const role = seedUser.role ?? "user";
       if (existing) {
         userId = existing._id;
-        // Update the name from the seed list. Never change the role.
-        if (existing.name !== seedUser.name) {
-          await ctx.db.patch(userId, { name: seedUser.name });
+        const patch: Partial<Doc<"users">> = {};
+        if (existing.name !== seedUser.name) patch.name = seedUser.name;
+        if (role === "admin" && existing.role !== "admin") patch.role = "admin";
+        if (Object.keys(patch).length > 0) {
+          await ctx.db.patch(userId, patch);
           usersUpdated++;
         }
       } else {
         userId = await ctx.db.insert("users", {
-          ...seedUser,
+          clerkUserId: seedUser.clerkUserId,
           email: seedUser.email.toLowerCase(),
-          role: "user",
+          name: seedUser.name,
+          role,
         });
         usersCreated++;
       }

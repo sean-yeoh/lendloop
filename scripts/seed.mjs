@@ -11,6 +11,8 @@ const seedUsers = [
   { email: "alice+clerk_test@example.com", firstName: "Alice", lastName: "Smith" },
   { email: "bob+clerk_test@example.com", firstName: "Bob", lastName: "Jones" },
   { email: "carol+clerk_test@example.com", firstName: "Carol", lastName: "Brown" },
+  // Gets the admin role in Convex. No tools or loans.
+  { email: "admin+clerk_test@example.com", firstName: "Admin", lastName: "User", role: "admin" },
 ];
 
 const secretKey = process.env.CLERK_SECRET_KEY;
@@ -55,6 +57,7 @@ for (const seedUser of seedUsers) {
     clerkUserId: user.id,
     email: seedUser.email,
     name: `${seedUser.firstName} ${seedUser.lastName}`,
+    ...(seedUser.role ? { role: seedUser.role } : {}),
   });
 }
 
