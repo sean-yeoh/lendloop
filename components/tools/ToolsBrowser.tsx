@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { usePathname, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,8 +17,13 @@ export function ToolsBrowser({ category }: { category?: ToolCategory }) {
   const router = useRouter();
   const pathname = usePathname();
   const today = useLocalToday();
+  // Skip while signed out. On sign-out, the query would otherwise re-run without a token.
+  const { isAuthenticated } = useConvexAuth();
   const me = useQuery(api.users.me);
-  const tools = useQuery(api.tools.list, today ? { today, category } : "skip");
+  const tools = useQuery(
+    api.tools.list,
+    isAuthenticated && today ? { today, category } : "skip",
+  );
 
   function onCategoryChange(value: string | null) {
     router.replace(isToolCategory(value) ? `${pathname}?category=${value}` : pathname);

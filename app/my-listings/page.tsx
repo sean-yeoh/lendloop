@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { useState } from "react";
 import { RemoveToolDialog } from "@/components/tools/RemoveToolDialog";
 import { ToolCard } from "@/components/tools/ToolCard";
@@ -11,7 +11,9 @@ import { useLocalToday } from "@/hooks/useLocalToday";
 
 export default function MyListingsPage() {
   const today = useLocalToday();
-  const tools = useQuery(api.tools.mine, today ? { today } : "skip");
+  // Skip while signed out. On sign-out, the query would otherwise re-run without a token.
+  const { isAuthenticated } = useConvexAuth();
+  const tools = useQuery(api.tools.mine, isAuthenticated && today ? { today } : "skip");
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<EditableTool | null>(null);
 
