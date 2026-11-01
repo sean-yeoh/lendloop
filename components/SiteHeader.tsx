@@ -1,10 +1,11 @@
 "use client";
 
-import { SignInButton, UserButton } from "@clerk/nextjs";
+import { SignInButton } from "@clerk/nextjs";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
 import { Repeat } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { UserMenu } from "@/components/UserMenu";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 
@@ -19,7 +20,7 @@ export function SiteHeader() {
       </Link>
       <nav className="flex h-8 items-center gap-4">
         <AuthLoading>
-          <div className="size-7 animate-pulse rounded-full bg-muted" />
+          <div className="size-8 animate-pulse rounded-full bg-muted" />
         </AuthLoading>
         <Unauthenticated>
           <SignInButton>
@@ -30,7 +31,7 @@ export function SiteHeader() {
           <NavLink href="/tools">Tools</NavLink>
           <NavLink href="/my-listings">My listings</NavLink>
           <AdminLink />
-          <UserButton />
+          <UserMenu />
         </Authenticated>
       </nav>
     </header>

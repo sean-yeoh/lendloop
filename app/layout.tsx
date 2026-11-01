@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { shadcn } from "@clerk/ui/themes";
 import { ThemeProvider } from "next-themes";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -33,7 +34,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         {/* ClerkProvider must wrap ConvexClientProvider, because Convex reads the Clerk session. */}
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <ClerkProvider>
+          {/* The shadcn theme reads our CSS tokens, so Clerk components use the app colours. */}
+          <ClerkProvider appearance={{ theme: shadcn }}>
             <ConvexClientProvider>
               <SiteHeader />
               {children}

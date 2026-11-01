@@ -53,7 +53,8 @@ requested -> cancelled
 
 | Path | Who | What |
 |---|---|---|
-| `/` | Anyone | Tagline, sign-in button, and the public tool list (name and category only). |
+| `/` | Anyone | Marketing page: tagline, how it works, the public tool list (name and category only), and sign-in. |
+| `/sign-in` | Anyone | Clerk sign-in and sign-up in one flow, styled with the app theme. |
 | `/tools` | Signed-in users | All tools with availability, filtered by category (`?category=garden`). Admins can remove any tool here. |
 | `/my-listings` | Signed-in users | Your tools. Add, edit, and remove. |
 | `/admin` | Admins | Admin tools (in progress). |
@@ -135,6 +136,14 @@ The CLI writes `CONVEX_DEPLOYMENT`, `NEXT_PUBLIC_CONVEX_URL`, and `NEXT_PUBLIC_C
 
    If you lose the key, create a new one and delete the old one.
 
+8. Add the sign-in page settings to `.env.local`. They make Clerk use the in-app `/sign-in` page, not the Clerk-hosted page:
+
+   ```
+   NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+   NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/
+   NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/
+   ```
+
 ### 4. Set the Convex environment variable
 
 Convex functions run in the Convex backend. They do not read `.env.local`. Copy the **Frontend API URL** from the right side of the Clerk **API keys** page. Set it on your Convex deployment with this exact name (not `CLERK_FRONTEND_API_URL`, which the Clerk setup page shows):
@@ -193,6 +202,9 @@ These scripts call the internal Convex functions `users:grantAdmin` and `users:r
 | `NEXT_PUBLIC_CONVEX_SITE_URL` | `.env.local` | Written by `convex dev` |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | `.env.local` | Clerk dashboard, **API keys** |
 | `CLERK_SECRET_KEY` | `.env.local` | Clerk dashboard, **API keys**. Secret. |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_URL` | `.env.local` | `/sign-in` (step 3.8) |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL` | `.env.local` | `/` (step 3.8) |
+| `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL` | `.env.local` | `/` (step 3.8) |
 | `CLERK_JWT_ISSUER_DOMAIN` | Convex deployment (`convex env set`) | Clerk dashboard, **API keys**, Frontend API URL |
 
 To see the variables and values on your Convex deployment:
