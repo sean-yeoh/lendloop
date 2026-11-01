@@ -4,7 +4,9 @@ import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { findUserByClerkId, getCurrentUser, requireUser } from "./lib/auth";
+import { utcToday } from "./lib/dates";
 import { recordLoanEvent } from "./lib/events";
+import { removeTool } from "./lib/listings";
 
 // Account deletion.
 //
@@ -81,26 +83,34 @@ export const closeDeletedClerkUser = internalMutation({
     const user = await findUserByClerkId(ctx, clerkUserId);
     if (!user) return "unknown user" as const;
     if (user.deletedAt) return "already closed" as const;
-    // Active loans stay as they are, so the other person can still mark the tool returned.
+    // Loans in progress stay, so the lender can still mark the tool returned. Future bookings
+    // are cancelled (see closeAccount).
     await closeAccount(ctx, user);
     return "closed" as const;
   },
 });
 
 // Removes the user's listings, closes their pending requests, and removes their personal data.
+// After deleteMyAccount's check, the user has no approved loans, so only listings and pending
+// requests change. After a Clerk Dashboard deletion, future bookings are also cancelled.
 async function closeAccount(ctx: MutationCtx, user: Doc<"users">) {
+  // The server date: the webhook has no client date. Each change notifies the other person.
+  const today = utcToday(Date.now());
   const tools = await ctx.db
     .query("tools")
     .withIndex("by_owner_status", (q) => q.eq("ownerId", user._id).eq("status", "active"))
     .collect();
-  for (const tool of tools) await ctx.db.patch(tool._id, { status: "removed" });
+  // Declines pending requests and cancels future bookings for each listing (lib/listings.ts).
+  for (const tool of tools) await removeTool(ctx, tool, today);
 
-  // Each status change notifies the other person, as it does when they act themselves.
-  for (const loan of await pendingAsLender(ctx, user)) {
-    await ctx.db.patch(loan._id, { status: "declined" });
-    await recordLoanEvent(ctx, loan._id, "declined");
-  }
-  for (const loan of await pendingAsBorrower(ctx, user)) {
+  const borrowing = await ctx.db
+    .query("loans")
+    .withIndex("by_borrower_status_endDate", (q) => q.eq("borrowerId", user._id))
+    .collect();
+  for (const loan of borrowing) {
+    const open =
+      loan.status === "requested" || (loan.status === "approved" && loan.startDate > today);
+    if (!open) continue;
     await ctx.db.patch(loan._id, { status: "cancelled" });
     await recordLoanEvent(ctx, loan._id, "cancelled");
   }

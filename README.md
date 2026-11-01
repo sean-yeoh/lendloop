@@ -35,6 +35,7 @@ Loan status changes:
 requested -> approved -> returned
 requested -> declined
 requested -> cancelled
+approved  -> cancelled   (a future booking, when the listing is removed or the account is closed)
 ```
 
 ### Decisions
@@ -45,7 +46,9 @@ requested -> cancelled
 - **The client sends "today" to queries that show availability.** Convex does not re-run a query when `Date.now()` changes ([Convex best practices](https://docs.convex.dev/understanding/best-practices/#date-in-queries)). The client sends its local date. The date changes once a day, so query caching stays effective. "Today" is the user's local date, which is correct for a neighborhood app.
 - **The public list shows all active tools,** with name and category only. It does not show availability, owners, or IDs.
 - **Signed-in users see the owner's name and Trusted Lender badge,** but never the owner's email.
-- **Only the owner can edit a tool.** Admins can remove any tool, but cannot edit it. When a tool is removed, Convex declines its pending requests. Approved loans stay, because the borrower must still return the tool.
+- **Only the owner can edit a tool.** Admins can remove any tool, but cannot edit it.
+- **The owner cannot remove a tool while an approved loan is open** (in progress, overdue, or booked for later), because the tool must come back first. The remove dialog lists the blocking loans. The same rule blocks account deletion.
+- **An admin can remove any listing**, for example an abusive one. Convex declines its pending requests, cancels its future bookings (event `withdrawn`), and emails each borrower. Loans in progress stay, because the borrower must still return the tool. Removal is a soft delete in both cases (`convex/lib/listings.ts`).
 - **Signed-in list queries return no data to signed-out callers, and do not throw.** On sign-out, the Convex client re-runs open queries without a token before the page can stop them. An error there only adds noise to the logs. Mutations, and admin queries for non-admins, still throw.
 - **The header shows count badges** for requests that wait for your answer and for your overdue loans. These are the two cases where the user must act. Status changes reach users through the n8n notifications, so the app does not track "seen" state.
 - **Lists show at most 200 tools.** Pagination is a later step.
@@ -61,7 +64,7 @@ requested -> cancelled
 - **The admin user list shows names, not emails.** The Trusted Lender decision needs no contact data.
 - **Account deletion is in LendLoop, and is blocked while a loan is active.** **Manage account** has a **Delete account** page (`components/account/DeleteAccountPage.tsx`). An approved loan that is not returned blocks deletion, on either side, because the tool must still come back. When deletion is allowed, Convex removes the user's listings, declines incoming pending requests, cancels the user's own pending requests (the other person is notified), anonymizes the user row, and then deletes the Clerk user with the Backend API, with retries. Clerk's own **Delete account** is turned off for each user (`delete_self_enabled: false`), when Convex creates the user and in `make clerk-setup`, so it cannot skip the loan check.
 - **A deleted user row is anonymized, not deleted.** Other users' loan history refers to it. The name becomes "Deleted user", the email is cleared, and admin and Trusted Lender are removed. The Clerk user ID stays, so a repeated webhook and an old session are recognized. It identifies no one once the Clerk user is deleted. A deleted account counts as signed out in every Convex function, and gets no notifications or reminders.
-- **A deletion in the Clerk Dashboard cannot be blocked.** The Clerk `user.deleted` webhook (`POST /clerk/webhook` on Convex) closes the account in the same way, but leaves active loans as they are, so the lender can still mark the tool returned.
+- **A deletion in the Clerk Dashboard cannot be blocked.** The Clerk `user.deleted` webhook (`POST /clerk/webhook` on Convex) closes the account in the same way, without the loan check. Future bookings on both sides are cancelled, and the other person is notified. Loans in progress stay, so the lender can still mark the tool returned.
 - **Owners cannot block dates.** The requirements do not include this. The owner controls each loan with approve and decline. A possible next step is a `toolBlocks` table, checked with the same overlap rule as loans.
 
 ## Pages
@@ -99,7 +102,8 @@ Rules:
 | `tools.list`, `tools.mine` | Empty | ✓ | ✓ | `mine`: own tools only | list › returns no tools to a caller that is not signed in. mine › returns only the caller's active tools |
 | `tools.create` | ✗ | ✓ | ✓ | The owner is the caller | create › sets the owner from the token and trims input. create › rejects a caller that is not signed in |
 | `tools.update` | ✗ | Owner | Owner | Admins cannot edit other users' tools | update › rejects other users and admins |
-| `tools.remove` | ✗ | Owner | Any tool | Declines pending requests | remove › lets the owner and admins remove a tool, but not other users |
+| `tools.remove` | ✗ | Owner | Any tool | Owner: refused while an approved loan is open. Admin: cancels future bookings. | remove › lets the owner and admins remove a tool, but not other users. remove › is refused for the owner while an approved loan is in progress (overdue, booked for later) |
+| `tools.removalStatus` | null | Owner | Any tool | Borrower names, no emails | removalStatus › lists approved loans for the owner and admins, and nothing for other users |
 | `loans.request` | ✗ | ✓ | ✓ | Not your own tool | request › rejects the owner's own tool. request › rejects a caller that is not signed in |
 | `loans.approve`, `loans.decline`, `loans.markReturned` | ✗ | Lender | Lender | | approve › rejects the borrower and other users. decline and cancel › the lender declines, and the borrower cannot. markReturned › rejects the borrower and a loan that is not approved |
 | `loans.cancel` | ✗ | Borrower | Borrower | Only while `requested` | decline and cancel › the borrower cancels a request, and the lender cannot |
@@ -122,7 +126,7 @@ Convex is the source of truth: it decides who may do what, and what is overdue. 
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| **LendLoop: Request notification** | Webhook, called by Convex | Emails the lender about new and cancelled requests, and the borrower about approvals, declines, and returns. |
+| **LendLoop: Request notification** | Webhook, called by Convex | Emails the lender about new and cancelled requests, and the borrower about approvals, declines, returns, and bookings cancelled because the listing was removed. |
 | **LendLoop: Overdue reminders** | Every day at 09:00 (n8n time zone, `TZ` in `compose.yaml`), or **Run now** | Gets the overdue loans from Convex, emails each borrower, and writes each reminder back to Convex. |
 | **LendLoop: Error alerts** | Any failed run of the two workflows above | Emails the workflow name, the failed node, and the error to `ops@lendloop.local`. |
 

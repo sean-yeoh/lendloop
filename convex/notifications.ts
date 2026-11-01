@@ -23,6 +23,7 @@ const RECIPIENTS: Record<string, { to: "lender" | "borrower"; path: string }> = 
   approved: { to: "borrower", path: "/requests" },
   declined: { to: "borrower", path: "/requests" },
   returned: { to: "borrower", path: "/requests" },
+  withdrawn: { to: "borrower", path: "/requests" },
 };
 
 // The webhook body. Only the fields that the email needs: no IDs of other users, and only the

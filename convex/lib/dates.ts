@@ -20,6 +20,11 @@ export function assertClientToday(today: string, now: number): void {
   }
 }
 
+// The server's date in UTC, for server-side callers that have no client date, such as webhooks.
+export function utcToday(now: number): string {
+  return new Date(now).toISOString().slice(0, 10);
+}
+
 // Loans cover full days, so ranges that share a day overlap.
 export function rangesOverlap(
   a: { startDate: string; endDate: string },

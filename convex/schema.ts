@@ -38,6 +38,8 @@ export const loanEventType = v.union(
   v.literal("declined"),
   v.literal("cancelled"),
   v.literal("returned"),
+  // An approved booking that was cancelled because the listing was removed.
+  v.literal("withdrawn"),
   v.literal("reminder_sent"),
 );
 

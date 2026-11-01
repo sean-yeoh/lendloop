@@ -83,7 +83,10 @@ async function scenario() {
       saw: await tool("Saw", carol),
     };
   });
-  const loan = (fields: Pick<Doc<"loans">, "toolId" | "borrowerId" | "lenderId" | "status">) =>
+  const loan = (
+    fields: Pick<Doc<"loans">, "toolId" | "borrowerId" | "lenderId" | "status"> &
+      Partial<Pick<Doc<"loans">, "startDate" | "endDate">>,
+  ) =>
     t.run((ctx) =>
       ctx.db.insert("loans", { startDate: "2026-11-12", endDate: "2026-11-14", ...fields }),
     );
@@ -368,6 +371,23 @@ describe("POST /clerk/webhook", () => {
       borrowerId: s.bob,
       lenderId: s.alice,
       status: "approved",
+      startDate: "2026-11-09",
+    });
+    const futureLent = await s.loan({
+      toolId: s.drill,
+      borrowerId: s.carol,
+      lenderId: s.alice,
+      status: "approved",
+      startDate: "2026-11-20",
+      endDate: "2026-11-22",
+    });
+    const futureBorrowed = await s.loan({
+      toolId: s.saw,
+      borrowerId: s.alice,
+      lenderId: s.carol,
+      status: "approved",
+      startDate: "2026-11-20",
+      endDate: "2026-11-22",
     });
     const pending = await s.loan({
       toolId: s.ladder,
@@ -383,8 +403,18 @@ describe("POST /clerk/webhook", () => {
     expect(await getDoc(s.t, s.alice)).toMatchObject({ name: "Deleted user", email: "" });
     expect((await getDoc(s.t, s.drill)).status).toBe("removed");
     expect((await getDoc(s.t, pending)).status).toBe("declined");
-    // The active loan stays, so Bob's return can still be recorded.
+    // The loan in progress stays, so Bob's return can still be recorded.
     expect((await getDoc(s.t, active)).status).toBe("approved");
+    // Future bookings on both sides are cancelled, and the other person is notified.
+    expect((await getDoc(s.t, futureLent)).status).toBe("cancelled");
+    expect((await getDoc(s.t, futureBorrowed)).status).toBe("cancelled");
+    const events = await s.t.run((ctx) => ctx.db.query("loanEvents").collect());
+    expect(events.map((event) => [event.loanId, event.type])).toEqual(
+      expect.arrayContaining([
+        [futureLent, "withdrawn"],
+        [futureBorrowed, "cancelled"],
+      ]),
+    );
 
     const again = await clerkWebhook(s.t, userDeleted("user_alice"));
     expect(again.status).toBe(200);

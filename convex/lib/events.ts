@@ -9,6 +9,7 @@ const NOTIFY: ReadonlySet<Doc<"loanEvents">["type"]> = new Set([
   "declined",
   "cancelled",
   "returned",
+  "withdrawn",
 ]);
 
 // Records a user action on a loan. For notifying events, the outbox row is written in the same

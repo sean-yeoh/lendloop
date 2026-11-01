@@ -100,7 +100,7 @@ describe("request", () => {
 
   test("rejects a removed tool", async () => {
     const { alice, bob, toolId, request } = await scenario();
-    await alice.as.mutation(api.tools.remove, { toolId });
+    await alice.as.mutation(api.tools.remove, { toolId, today: TODAY });
     await expect(request(bob, TODAY, TODAY)).rejects.toThrow("Tool not found");
   });
 

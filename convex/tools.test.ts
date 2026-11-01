@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
-import { describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import schema from "./schema";
@@ -8,6 +8,13 @@ import schema from "./schema";
 const modules = import.meta.glob("./**/*.ts");
 
 const TODAY = "2026-11-10";
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(`${TODAY}T12:00:00Z`));
+});
+
+afterEach(() => vi.useRealTimers());
 
 const drill = {
   name: "Cordless drill",
@@ -115,7 +122,7 @@ describe("update", () => {
     const t = setup();
     const alice = await addUser(t, "alice");
     const toolId = await alice.as.mutation(api.tools.create, drill);
-    await alice.as.mutation(api.tools.remove, { toolId });
+    await alice.as.mutation(api.tools.remove, { toolId, today: TODAY });
 
     await expect(alice.as.mutation(api.tools.update, { toolId, ...drill })).rejects.toThrow(
       "Tool not found",
@@ -132,15 +139,17 @@ describe("remove", () => {
     const first = await alice.as.mutation(api.tools.create, drill);
     const second = await alice.as.mutation(api.tools.create, drill);
 
-    await expect(bob.as.mutation(api.tools.remove, { toolId: first })).rejects.toThrow("Forbidden");
-    await alice.as.mutation(api.tools.remove, { toolId: first });
-    await admin.as.mutation(api.tools.remove, { toolId: second });
+    await expect(
+      bob.as.mutation(api.tools.remove, { toolId: first, today: TODAY }),
+    ).rejects.toThrow("Forbidden");
+    await alice.as.mutation(api.tools.remove, { toolId: first, today: TODAY });
+    await admin.as.mutation(api.tools.remove, { toolId: second, today: TODAY });
 
     const tools = await t.run((ctx) => ctx.db.query("tools").collect());
     expect(tools.map((tool) => tool.status)).toEqual(["removed", "removed"]);
   });
 
-  test("declines pending requests and keeps approved loans", async () => {
+  test("declines pending requests when the owner removes a tool with no open loans", async () => {
     const t = setup();
     const alice = await addUser(t, "alice");
     const bob = await addUser(t, "bob");
@@ -150,21 +159,111 @@ describe("remove", () => {
       endDate: "2026-11-21",
       status: "requested",
     });
-    const approved = await addLoan(t, toolId, bob.id, {
+    const returned = await addLoan(t, toolId, bob.id, {
+      startDate: "2026-11-01",
+      endDate: "2026-11-02",
+      status: "returned",
+    });
+
+    await alice.as.mutation(api.tools.remove, { toolId, today: TODAY });
+
+    const loans = await t.run(async (ctx) => [
+      await ctx.db.get(pending),
+      await ctx.db.get(returned),
+    ]);
+    expect(loans.map((loan) => loan?.status)).toEqual(["declined", "returned"]);
+    const events = await t.run((ctx) => ctx.db.query("loanEvents").collect());
+    expect(events).toMatchObject([{ loanId: pending, type: "declined", source: "user" }]);
+  });
+
+  test.each([
+    ["in progress", "2026-11-09", "2026-11-11"],
+    ["overdue", "2026-11-01", "2026-11-05"],
+    ["booked for later", "2026-11-20", "2026-11-22"],
+  ])("is refused for the owner while an approved loan is %s", async (_, startDate, endDate) => {
+    const t = setup();
+    const alice = await addUser(t, "alice");
+    const bob = await addUser(t, "bob");
+    const toolId = await alice.as.mutation(api.tools.create, drill);
+    await addLoan(t, toolId, bob.id, { startDate, endDate, status: "approved" });
+
+    await expect(alice.as.mutation(api.tools.remove, { toolId, today: TODAY })).rejects.toThrow(
+      "It must be returned before you can remove it",
+    );
+    expect((await t.run((ctx) => ctx.db.get(toolId)))?.status).toBe("active");
+  });
+
+  test("an admin removes a listing: future bookings are cancelled, loans in progress stay", async () => {
+    const t = setup();
+    const alice = await addUser(t, "alice");
+    const bob = await addUser(t, "bob");
+    const carol = await addUser(t, "carol");
+    const admin = await addUser(t, "admin", { role: "admin" });
+    const toolId = await alice.as.mutation(api.tools.create, drill);
+    const inProgress = await addLoan(t, toolId, bob.id, {
       startDate: "2026-11-09",
       endDate: "2026-11-11",
       status: "approved",
     });
+    const future = await addLoan(t, toolId, carol.id, {
+      startDate: "2026-11-20",
+      endDate: "2026-11-22",
+      status: "approved",
+    });
 
-    await alice.as.mutation(api.tools.remove, { toolId });
+    await admin.as.mutation(api.tools.remove, { toolId, today: TODAY });
 
     const loans = await t.run(async (ctx) => [
-      await ctx.db.get(pending),
-      await ctx.db.get(approved),
+      await ctx.db.get(inProgress),
+      await ctx.db.get(future),
     ]);
-    expect(loans.map((loan) => loan?.status)).toEqual(["declined", "approved"]);
+    expect(loans.map((loan) => loan?.status)).toEqual(["approved", "cancelled"]);
     const events = await t.run((ctx) => ctx.db.query("loanEvents").collect());
-    expect(events).toMatchObject([{ loanId: pending, type: "declined", source: "user" }]);
+    expect(events).toMatchObject([{ loanId: future, type: "withdrawn" }]);
+    // The borrower is notified through the outbox.
+    expect(await t.run((ctx) => ctx.db.query("notifications").collect())).toHaveLength(1);
+  });
+});
+
+describe("removalStatus", () => {
+  test("lists approved loans for the owner and admins, and nothing for other users", async () => {
+    const t = setup();
+    const alice = await addUser(t, "alice");
+    const bob = await addUser(t, "bob");
+    const admin = await addUser(t, "admin", { role: "admin" });
+    const toolId = await alice.as.mutation(api.tools.create, drill);
+    const loanId = await addLoan(t, toolId, bob.id, {
+      startDate: "2026-11-09",
+      endDate: "2026-11-11",
+      status: "approved",
+    });
+    await addLoan(t, toolId, bob.id, {
+      startDate: "2026-11-20",
+      endDate: "2026-11-21",
+      status: "requested",
+    });
+
+    const expected = {
+      approvedLoans: [
+        {
+          _id: loanId,
+          borrowerName: "bob",
+          startDate: "2026-11-09",
+          endDate: "2026-11-11",
+          started: true,
+        },
+      ],
+      pendingCount: 1,
+    };
+    expect(await alice.as.query(api.tools.removalStatus, { toolId, today: TODAY })).toEqual({
+      isOwner: true,
+      ...expected,
+    });
+    expect(await admin.as.query(api.tools.removalStatus, { toolId, today: TODAY })).toEqual({
+      isOwner: false,
+      ...expected,
+    });
+    expect(await bob.as.query(api.tools.removalStatus, { toolId, today: TODAY })).toBeNull();
   });
 });
 
@@ -174,7 +273,7 @@ describe("listPublic", () => {
     const alice = await addUser(t, "alice");
     await alice.as.mutation(api.tools.create, drill);
     const removed = await alice.as.mutation(api.tools.create, { ...drill, name: "Old saw" });
-    await alice.as.mutation(api.tools.remove, { toolId: removed });
+    await alice.as.mutation(api.tools.remove, { toolId: removed, today: TODAY });
 
     expect(await t.query(api.tools.listPublic, {})).toEqual([
       { name: "Cordless drill", category: "power_tools" },
@@ -283,7 +382,7 @@ describe("mine", () => {
     const bob = await addUser(t, "bob");
     await alice.as.mutation(api.tools.create, drill);
     const removed = await alice.as.mutation(api.tools.create, { ...drill, name: "Old saw" });
-    await alice.as.mutation(api.tools.remove, { toolId: removed });
+    await alice.as.mutation(api.tools.remove, { toolId: removed, today: TODAY });
     await bob.as.mutation(api.tools.create, {
       ...drill,
       name: "Bob's ladder",

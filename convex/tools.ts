@@ -2,9 +2,9 @@ import { ConvexError, v, type Infer } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { getCurrentUser, requireUser } from "./lib/auth";
-import { assertDate } from "./lib/dates";
-import { recordLoanEvent } from "./lib/events";
+import { assertClientToday, assertDate } from "./lib/dates";
 import { DESCRIPTION_MAX, NAME_MAX } from "./lib/limits";
+import { approvedLoansForTool, removeTool } from "./lib/listings";
 import { toolCategory, toolCondition } from "./schema";
 
 // Lists are capped until they are paginated.
@@ -119,23 +119,59 @@ export const update = mutation({
 
 // Soft delete by the owner or an admin. Pending requests are declined. Approved loans stay,
 // because the borrower still has to return the tool.
+// The owner can remove a tool only when no approved loan is open, because the tool must come
+// back first. An admin can remove any listing, for example an abusive one: future bookings are
+// cancelled and loans in progress stay. See lib/listings.ts.
 export const remove = mutation({
-  args: { toolId: v.id("tools") },
-  handler: async (ctx, { toolId }) => {
+  args: { toolId: v.id("tools"), today: v.string() },
+  handler: async (ctx, { toolId, today }) => {
+    assertClientToday(today, Date.now());
     const me = await requireUser(ctx);
     const tool = await getActiveTool(ctx, toolId);
-    if (tool.ownerId !== me._id && me.role !== "admin") throw new ConvexError("Forbidden");
+    const isOwner = tool.ownerId === me._id;
+    if (!isOwner && me.role !== "admin") throw new ConvexError("Forbidden");
 
-    await ctx.db.patch(toolId, { status: "removed" });
-
-    const pending = await ctx.db
-      .query("loans")
-      .withIndex("by_tool_status", (q) => q.eq("toolId", toolId).eq("status", "requested"))
-      .collect();
-    for (const loan of pending) {
-      await ctx.db.patch(loan._id, { status: "declined" });
-      await recordLoanEvent(ctx, loan._id, "declined");
+    if (isOwner) {
+      const open = await approvedLoansForTool(ctx, toolId);
+      if (open.length > 0) {
+        throw new ConvexError(
+          `This tool has ${open.length} approved ${open.length === 1 ? "loan" : "loans"}. ` +
+            "It must be returned before you can remove it.",
+        );
+      }
     }
+    await removeTool(ctx, tool, today);
+  },
+});
+
+/** What removing a tool would do, for the remove dialog. Null if the caller cannot remove it. */
+export const removalStatus = query({
+  args: { toolId: v.id("tools"), today: v.string() },
+  handler: async (ctx, { toolId, today }) => {
+    assertDate(today, "today");
+    const me = await getCurrentUser(ctx);
+    const tool = await ctx.db.get(toolId);
+    if (!me || !tool || tool.status !== "active") return null;
+    const isOwner = tool.ownerId === me._id;
+    if (!isOwner && me.role !== "admin") return null;
+
+    const [approved, pending] = await Promise.all([
+      approvedLoansForTool(ctx, toolId),
+      ctx.db
+        .query("loans")
+        .withIndex("by_tool_status", (q) => q.eq("toolId", toolId).eq("status", "requested"))
+        .collect(),
+    ]);
+    const loans = await Promise.all(
+      approved.map(async (loan) => ({
+        _id: loan._id,
+        borrowerName: (await ctx.db.get(loan.borrowerId))?.name ?? "Deleted user",
+        startDate: loan.startDate,
+        endDate: loan.endDate,
+        started: loan.startDate <= today,
+      })),
+    );
+    return { isOwner, approvedLoans: loans, pendingCount: pending.length };
   },
 });
 

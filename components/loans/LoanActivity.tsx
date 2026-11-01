@@ -18,6 +18,7 @@ const emailLabels: Partial<Record<Doc<"loanEvents">["type"], string>> = {
   declined: "Decline email",
   cancelled: "Cancellation email",
   returned: "Return email",
+  withdrawn: "Cancellation email",
 };
 
 // Recent automation activity from n8n, for example "Reminder sent 2 days ago".

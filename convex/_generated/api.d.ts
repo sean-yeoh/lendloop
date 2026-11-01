@@ -16,6 +16,7 @@ import type * as lib_auth from "../lib/auth.js";
 import type * as lib_dates from "../lib/dates.js";
 import type * as lib_events from "../lib/events.js";
 import type * as lib_limits from "../lib/limits.js";
+import type * as lib_listings from "../lib/listings.js";
 import type * as lib_signature from "../lib/signature.js";
 import type * as loans from "../loans.js";
 import type * as notifications from "../notifications.js";
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   "lib/dates": typeof lib_dates;
   "lib/events": typeof lib_events;
   "lib/limits": typeof lib_limits;
+  "lib/listings": typeof lib_listings;
   "lib/signature": typeof lib_signature;
   loans: typeof loans;
   notifications: typeof notifications;
