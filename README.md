@@ -193,6 +193,21 @@ The result is `"revoked"`, or `"not admin"`.
 
 These scripts call the internal Convex functions `users:grantAdmin` and `users:revokeAdmin`. `convex dev` must be running.
 
+### 7. Seed test data (optional)
+
+```sh
+pnpm seed
+```
+
+The script:
+
+1. Creates three Clerk test users in your development instance, or reuses them if they exist: `alice+clerk_test@example.com`, `bob+clerk_test@example.com`, and `carol+clerk_test@example.com`.
+2. Creates their Convex user rows and 12 tools. They do not need to sign in first.
+
+You can run it more than once. It does not create duplicates. It runs only with a development secret key (`sk_test_`), and `convex dev` must be running.
+
+To sign in as a test user, enter the email, then the code `424242`. Clerk never sends email to `+clerk_test` addresses. To give new test users a password, set `SEED_USER_PASSWORD` in `.env.local` before you run the seed.
+
 ### Environment variables
 
 | Variable | Where it is set | Source |
@@ -205,6 +220,7 @@ These scripts call the internal Convex functions `users:grantAdmin` and `users:r
 | `NEXT_PUBLIC_CLERK_SIGN_IN_URL` | `.env.local` | `/sign-in` (step 3.8) |
 | `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL` | `.env.local` | `/` (step 3.8) |
 | `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL` | `.env.local` | `/` (step 3.8) |
+| `SEED_USER_PASSWORD` | `.env.local` | Optional. Password for new seed users (step 7). |
 | `CLERK_JWT_ISSUER_DOMAIN` | Convex deployment (`convex env set`) | Clerk dashboard, **API keys**, Frontend API URL |
 
 To see the variables and values on your Convex deployment:

@@ -212,6 +212,9 @@ importers:
         specifier: ^1.4.0
         version: 1.4.0
     devDependencies:
+      '@clerk/backend':
+        specifier: ^3.26.4
+        version: 3.26.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@edge-runtime/vm':
         specifier: ^5.0.0
         version: 5.0.0
@@ -3930,7 +3933,7 @@ snapshots:
 
   '@clerk/backend@3.26.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
-      '@clerk/shared': 4.43.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@clerk/shared': 4.43.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       standardwebhooks: 1.1.1
       tslib: 2.8.1
     transitivePeerDependencies:
