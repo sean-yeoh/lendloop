@@ -2,273 +2,17 @@
 
 Borrow what you need. Lend what you don't.
 
-LendLoop is a neighborhood tool-lending board. Neighbors list tools they can lend, request to borrow tools for a date range, and get automated notifications and overdue reminders through n8n.
+LendLoop is a neighborhood tool-lending board. Neighbors list tools they can lend, request to borrow tools for a date range, and get email notifications and overdue reminders.
 
-- [Data model](#data-model), [Access control](#access-control), [Automation (n8n)](#automation-n8n), [Security and data minimization](#security-and-data-minimization)
-- [Development setup](#development-setup)
-- [Production note](docs/production.md): what must change before production
+Built with Next.js 16, React 19, Tailwind CSS 4, shadcn/ui, Clerk (sign-in), Convex (data and backend), and n8n (email automation).
 
-## Stack
+## Quick start
 
-- Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4
-- shadcn/ui components on Base UI primitives (`components/ui`)
-- Clerk for authentication
-- Convex for data and backend logic
-- n8n for workflow automation
-- pnpm as the package manager
+You need Node.js 22.12+, pnpm 12, [Hivemind](https://github.com/DarthSim/hivemind), Podman or Docker, and a free [Clerk](https://dashboard.clerk.com) account. No Convex account is needed. Details: [Prerequisites](docs/setup.md#prerequisites).
 
-## Data model
+1. **Create a Clerk app**, and add the email and name claims to its session token. Follow [setup step 1](docs/setup.md#1-create-a-clerk-development-app) exactly. Without the claims, sign-in works but no user is created.
 
-The schema is in `convex/schema.ts`.
-
-| Table | Purpose |
-|---|---|
-| `users` | One row for each Clerk user. Has the `admin` or `user` role, the `trustedLender` flag, and `deletedAt` for deleted accounts. |
-| `tools` | Tool listings: name, category, condition, description, owner, and status (`active` or `removed`). |
-| `loans` | Borrow requests and loans for a date range. |
-| `loanEvents` | Loan activity, from users and from n8n (for example `reminder_sent`). |
-| `notifications` | Outbox for n8n request notifications: `pending`, `sent`, or `failed`, with the attempt count and the last error. |
-
-Loan status changes:
-
-```
-requested -> approved -> returned
-requested -> declined
-requested -> cancelled
-approved  -> cancelled   (a future booking, when the listing is removed or the account is closed)
-```
-
-### Decisions
-
-- **Categories and conditions are fixed lists in code.** The filter cannot get duplicates such as "Garden" and "gardening". To add a value, change the schema and deploy. If the list must change often, move it to a table that admins manage.
-- **Deleting a tool is a soft delete.** The status changes to `removed`, and the tool does not show in lists. Loans keep a valid reference to the tool.
-- **Availability is calculated, not stored.** A tool is "on loan" when it has an approved loan that includes today, or an approved loan that is overdue. If availability were also stored on the tool, the two values could disagree. An available tool with a future approved loan also shows "Booked from <date>".
-- **The client sends "today" to queries that show availability.** Convex does not re-run a query when `Date.now()` changes ([Convex best practices](https://docs.convex.dev/understanding/best-practices/#date-in-queries)). The client sends its local date. The date changes once a day, so query caching stays effective. "Today" is the user's local date, which is correct for a neighborhood app.
-- **The public list shows all active tools,** with name and category only. It does not show availability, owners, or IDs.
-- **Signed-in users see the owner's name and Trusted Lender badge,** but never the owner's email.
-- **Only the owner can edit a tool.** Admins can remove any tool, but cannot edit it.
-- **The owner cannot remove a tool while an approved loan is open** (in progress, overdue, or booked for later), because the tool must come back first. The remove dialog lists the blocking loans. The same rule blocks account deletion.
-- **An admin can remove any listing**, for example an abusive one. Convex declines its pending requests, cancels its future bookings (event `withdrawn`), and emails each borrower. Loans in progress stay, because the borrower must still return the tool. Removal is a soft delete in both cases (`convex/lib/listings.ts`).
-- **Signed-in list queries return no data to signed-out callers, and do not throw.** On sign-out, the Convex client re-runs open queries without a token before the page can stop them. An error there only adds noise to the logs. Mutations, and admin queries for non-admins, still throw.
-- **The header shows count badges** for requests that wait for your answer and for your overdue loans. These are the two cases where the user must act. Status changes reach users through the n8n notifications, so the app does not track "seen" state.
-- **Lists show at most 200 tools.** Pagination is a later step.
-- **Dates are calendar dates (`YYYY-MM-DD`).** A loan covers full days, and there are no timezone conversions. Strings in this format compare correctly.
-- **Overlapping requests:** pending requests can overlap. A request cannot overlap an approved loan. Convex checks this when the request is created, and again when the lender approves it. When the lender approves a request, Convex declines the other pending requests that overlap it, and notifies those borrowers.
-- **Only the lender marks a loan returned,** because the lender receives the tool. `returnedAt` records the time. A return after `endDate` is a late return. Until the lender marks it returned, the loan is overdue and n8n sends reminders.
-- **The borrower can cancel a request** while its status is `requested`.
-- **A borrower cannot send two overlapping requests for the same tool.** Different borrowers can.
-- **Mutations check the client's "today".** The borrower's local date decides if a start date is in the past. Convex accepts a client date only within one day of the server date, so a client cannot move "today" far back.
-- **Overdue is not a status.** A loan is overdue when its status is `approved` and its `endDate` is before today.
-- **Loan activity shows automation results.** Each loan in My requests, Incoming, and the admin loan list shows the last n8n reminder ("Reminder sent 2 days ago", with the count) and the delivery status of the latest notification email. It shows times and statuses only, no message content.
-- **Trusted Lender is a badge.** Admins give it to reliable lenders. Signed-in users see it next to the lender's name. It changes no loan rules.
-- **The admin user list shows names, not emails.** The Trusted Lender decision needs no contact data.
-- **Account deletion is in LendLoop, and is blocked while a loan is active.** **Manage account** has a **Delete account** page (`components/account/DeleteAccountPage.tsx`). An approved loan that is not returned blocks deletion, on either side, because the tool must still come back. When deletion is allowed, Convex removes the user's listings, declines incoming pending requests, cancels the user's own pending requests (the other person is notified), anonymizes the user row, and then deletes the Clerk user with the Backend API, with retries. Clerk's own **Delete account** is turned off for each user (`delete_self_enabled: false`), when Convex creates the user and in `pnpm setup:clerk`, so it cannot skip the loan check.
-- **A deleted user row is anonymized, not deleted.** Other users' loan history refers to it. The name becomes "Deleted user", the email is cleared, and admin and Trusted Lender are removed. The Clerk user ID stays, so a repeated webhook and an old session are recognized. It identifies no one once the Clerk user is deleted. A deleted account counts as signed out in every Convex function, and gets no notifications or reminders.
-- **A deletion in the Clerk Dashboard cannot be blocked.** The Clerk `user.deleted` webhook (`POST /clerk/webhook` on Convex) closes the account in the same way, without the loan check. Future bookings on both sides are cancelled, and the other person is notified. Loans in progress stay, so the lender can still mark the tool returned.
-- **Owners cannot block dates.** This is out of scope for now. The owner controls each loan with approve and decline. A possible next step is a `toolBlocks` table, checked with the same overlap rule as loans.
-
-## Pages
-
-| Path | Who | What |
-|---|---|---|
-| `/` | Anyone | Marketing page: tagline, how it works, the public tool list (name and category only), and sign-in. |
-| `/sign-in` | Anyone | Clerk sign-in and sign-up in one flow, styled with the app theme. |
-| `/tools` | Signed-in users | All tools with availability, filtered by category (`?category=garden`). Request a tool for a date range. Edit or remove your own tools. Admins can remove any tool here. |
-| `/my-listings` | Signed-in users | Your tools. Add, edit, and remove. |
-| `/requests` | Signed-in users | "My requests": tools that you asked to borrow. Cancel a pending request. |
-| `/incoming` | Signed-in users | "Incoming requests": requests for your tools. Approve, decline, and mark returned. |
-| `/admin` | Admins | All loans with a status filter and activity, all listings with remove, users with the Trusted Lender switch, and notifications that failed or are retrying, with **Retry**. |
-
-`proxy.ts` sends signed-out visitors from signed-in pages to Clerk sign-in. This is for UX only. The Convex functions check access on each call.
-
-The browser sends its local date to the availability queries. The date is read only in the browser, because the server does not know the user's time zone, and Next.js prerenders pages with Cache Components.
-
-## Access control
-
-All access control is in the Convex functions. Anyone can call a public Convex function directly, so the UI checks are only for display.
-
-Rules:
-
-- **Identity comes from the verified Clerk token** (`ctx.auth`). No function accepts a user ID or a role from the client.
-- **The role is stored in the `users` table.** New users get `user`. Only the internal functions `users:grantAdmin` and `users:revokeAdmin` change it (`pnpm admin:grant`), and account deletion resets it to `user`. The browser cannot call internal functions.
-- **Shared checks:** `requireUser`, `requireAdmin` (`convex/lib/auth.ts`), and `getLoanFor(lender | borrower)` (`convex/loans.ts`).
-- **Two kinds of rule:** the role (`user` or `admin`), and ownership (the tool owner, the lender, or the borrower of a loan).
-- **An admin is a user with extra rights.** Admins can also lend and borrow, under the same ownership rules as everyone else.
-- **Each query returns only the fields that its caller needs.** No list returns an email.
-
-| Function | Anyone | User | Admin | Rule | Test (`convex/*.test.ts`) |
-|---|---|---|---|---|---|
-| `tools.listPublic` | ✓ | ✓ | ✓ | Name and category only | listPublic › returns only name and category of active tools, without sign-in |
-| `tools.list`, `tools.mine` | Empty | ✓ | ✓ | `mine`: own tools only | list › returns no tools to a caller that is not signed in. mine › returns only the caller's active tools |
-| `tools.create` | ✗ | ✓ | ✓ | The owner is the caller | create › sets the owner from the token and trims input. create › rejects a caller that is not signed in |
-| `tools.update` | ✗ | Owner | Owner | Admins cannot edit other users' tools | update › rejects other users and admins |
-| `tools.remove` | ✗ | Owner | Any tool | Owner: refused while an approved loan is open. Admin: cancels future bookings. | remove › lets the owner and admins remove a tool, but not other users. remove › is refused for the owner while an approved loan is in progress (overdue, booked for later) |
-| `tools.removalStatus` | null | Owner | Any tool | Borrower names, no emails | removalStatus › lists approved loans for the owner and admins, and nothing for other users |
-| `loans.request` | ✗ | ✓ | ✓ | Not your own tool | request › rejects the owner's own tool. request › rejects a caller that is not signed in |
-| `loans.approve`, `loans.decline`, `loans.markReturned` | ✗ | Lender | Lender | | approve › rejects the borrower and other users. decline and cancel › the lender declines, and the borrower cannot. markReturned › rejects the borrower and a loan that is not approved |
-| `loans.cancel` | ✗ | Borrower | Borrower | Only while `requested` | decline and cancel › the borrower cancels a request, and the lender cannot |
-| `loans.myRequests`, `loans.incoming`, `loans.navCounts` | Empty | Own loans | Own loans | Names, no emails | lists › myRequests and incoming show only the caller's loans, with names and no emails. signed out › list queries return no data, and mutations still reject |
-| `loans.bookedRanges` | Empty | ✓ | ✓ | Dates only | bookedRanges › returns only the dates of approved loans, and nothing when signed out |
-| `loans.listAll` | ✗ | ✗ | ✓ | | lists › listAll is for admins only |
-| `users.listForAdmin` | ✗ | ✗ | ✓ | Names, no emails | Trusted Lender › listForAdmin returns names and tool counts, never emails, to admins only |
-| `users.setTrustedLender` | ✗ | ✗ | ✓ | | Trusted Lender › a normal user cannot mark anyone, including themselves |
-| `users.ensureUser`, `users.me` | ✗ / null | Self | Self | Never changes the role | ensureUser › updates email and name but keeps the role. me › returns null when not signed in |
-| `notifications.listProblems`, `notifications.retry` | ✗ | ✗ | ✓ | Event and tool names, no emails | admin view › lists failed notifications and retries them, for admins only |
-| `account.deletionStatus` | null | Self | Self | Names, no emails | deletionStatus › lists approved loans on both sides as blocking, with names only |
-| `account.deleteMyAccount` | ✗ | Self | Self | Refused while a loan is approved and not returned | deleteMyAccount › is refused while the user is the lender (or borrower) on an approved loan |
-| `users.grantAdmin`, `users.revokeAdmin`, `seed.run` | Internal | Internal | Internal | CLI with deployment access only | grantAdmin and revokeAdmin › grant, grant again, revoke, revoke again |
-| `POST /clerk/webhook` | Clerk only | | | Clerk signature (Standard Webhooks) | POST /clerk/webhook › rejects a wrong signature and an unsigned request |
-
-✓ allowed. ✗ rejected with an error. "Empty" returns no data. Signed-out callers get no data from list queries, because the Convex client re-runs open queries without a token during sign-out.
-
-## Automation (n8n)
-
-Convex is the source of truth: it decides who may do what, and what is overdue. n8n delivers messages and runs the schedule. The workflow files are in `n8n/workflows`, and `pnpm setup:n8n` imports them.
-
-| Workflow | Trigger | What it does |
-|---|---|---|
-| **LendLoop: Request notification** | Webhook, called by Convex | Emails the lender about new and cancelled requests, and the borrower about approvals, declines, returns, and bookings cancelled because the listing was removed. |
-| **LendLoop: Overdue reminders** | Every day at 09:00 (n8n time zone: the `TZ` environment variable when the containers start, default UTC), or **Run now** | Gets the overdue loans from Convex, emails each borrower, and writes each reminder back to Convex. |
-| **LendLoop: Error alerts** | Any failed run of the two workflows above | Emails the workflow name, the failed node, and the error to `ops@lendloop.local`. |
-
-In local development, all email goes to Mailpit.
-
-### Request notification
-
-```mermaid
-sequenceDiagram
-    participant U as Browser
-    participant C as Convex
-    participant N as n8n
-    participant M as Mailpit
-    U->>C: loans.approve
-    C->>C: Same transaction: loan status, loan event, outbox row
-    C-)C: Scheduled action notifications.deliver
-    C->>N: POST /webhook/lendloop-notify (signed)
-    N->>N: Check signature and age, skip duplicate IDs
-    N->>M: Email to the recipient
-    N-->>C: 200
-    C->>C: Outbox row: sent
-```
-
-- **Outbox:** the loan mutation writes a `notifications` row in the same transaction as the status change. A committed change always has a queued notification.
-- **Retries:** if n8n does not answer with 2xx, Convex tries again after 30 seconds, 2, 10, and 30 minutes. After 5 attempts, the row is `failed` with the last error. Admins can list and retry failed rows (`notifications.listProblems`, `notifications.retry`).
-- **Duplicates:** each notification has a stable ID. n8n records the IDs that it emailed and skips a repeated delivery.
-- **Data minimization:** the payload has the event, the tool name, the dates, the recipient's name and email, and the other person's name. It has no other email address and no user IDs.
-
-### Overdue reminders
-
-```mermaid
-sequenceDiagram
-    participant N as n8n
-    participant C as Convex
-    participant M as Mailpit
-    N->>C: GET /n8n/overdue?date=2026-11-10 (signed)
-    C-->>N: Overdue loans without a reminder for that date
-    loop Each loan
-        N->>M: Reminder to the borrower
-        N->>C: POST /n8n/reminders {loanId, date} (signed)
-        C-->>N: 201 created, or 200 {created: false} if already recorded
-    end
-```
-
-- **Idempotent write-back:** Convex stores each reminder as a `reminder_sent` loan event with the key `reminder:<loanId>:<date>`. A repeated request (an n8n retry, or a second run on the same day) creates nothing and returns `{ "created": false }`. A loan that already has a reminder for the date is not listed again.
-- **Retries:** the n8n HTTP and email nodes try up to 3 times, 5 seconds apart. If they still fail, the run fails and the error workflow sends an alert.
-
-### Request signing
-
-Every request between Convex and n8n is signed with HMAC-SHA256, in both directions, with a different secret for each direction.
-
-- Headers: `X-LendLoop-Timestamp` (Unix seconds) and `X-LendLoop-Signature` (hex).
-- Signed message: `<timestamp>.<METHOD>.<path and query>.<body>`. A signature is valid only for that exact request.
-- The receiver rejects a missing or wrong signature, and a timestamp more than 5 minutes from its own clock (replay protection), with HTTP 401. Signatures are compared in constant time.
-- Convex: `convex/lib/signature.ts` and `convex/http.ts`. n8n: a Code node rebuilds the message from the raw request body, and a Crypto node computes the HMAC with the secret from an n8n credential.
-- **The exported workflow JSON contains no secrets.** It refers to the credentials by ID. `pnpm setup:n8n` creates the credentials from the Convex environment variables.
-- n8n blocks access to environment variables in workflows by default (n8n 2.x). This setting is kept. The Convex URL (`http://host.docker.internal:3211`) and the app URL are plain values in the workflow files, because they are not secret. For another environment, change the Convex URL in the **Get overdue loans** and **Record reminder** nodes, and the app URL in the **Compose email** and **Compose reminder** nodes.
-
-## Security and data minimization
-
-### Security
-
-| Area | Measure |
-|---|---|
-| Authentication | Clerk. Convex verifies the Clerk session token (`convex/auth.config.ts`). |
-| Authorization | In every Convex function, by role and by ownership. See [Access control](#access-control). The UI checks are for display only. |
-| Admin rights | Granted only by internal Convex functions from the CLI (`pnpm admin:grant`). No browser request can change a role. |
-| Convex and n8n | HMAC-SHA256 signatures in both directions, a separate secret for each direction, a 5-minute timestamp window, and constant-time comparison. See [Request signing](#request-signing). |
-| Clerk webhook | Verified with Clerk's `verifyWebhook` (Standard Webhooks signature, 5-minute timestamp window) and `CLERK_WEBHOOK_SIGNING_SECRET`. A bad signature gets 400. The handler is safe to repeat, because Clerk can send an event more than once. |
-| Input validation | Convex argument validators, plus checks for name and description length, date format, date ranges, the client date, and loan status changes. |
-| Concurrency | Convex mutations are serializable transactions. An approval checks the overlap again inside its transaction. |
-| Secrets | In `.env.local` (ignored by Git), Convex environment variables, and encrypted n8n credentials. No secret is in the code or in the exported workflow JSON. The setup scripts pass secrets to Convex through stdin, and to n8n through a temporary file inside the container that is deleted after the import. |
-| Local services | n8n and Mailpit listen on `127.0.0.1` only. |
-
-### Data minimization
-
-The app stores only what it needs: Convex keeps each user's Clerk ID, email, display name, role, and Trusted Lender flag. Clerk keeps the sign-in data. No phone numbers, addresses, or payment data are collected.
-
-Each caller gets only the fields that it needs:
-
-| Who | Gets | Does not get |
-|---|---|---|
-| Visitors (public page) | Tool name and category | Owners, IDs, availability |
-| Signed-in users (tool list) | Tool details, availability, the owner's display name and Trusted Lender flag | Any email address, owner IDs |
-| Borrowers and lenders (loan lists) | The other person's display name, dates, status, activity times | Any email address |
-| Booking calendar | Approved date ranges | Who borrowed the tool |
-| Admins | Names, roles, tool counts, all loans with names | Email addresses |
-| n8n request notification | The recipient's name and email, the other person's name, the tool name, the dates | Other email addresses, user IDs |
-| n8n overdue list | The borrower's name and email, the lender's name, the tool name, the end date | The lender's email, user IDs |
-
-- **Display names never fall back to the full email address.** If Clerk has no name, the app uses the part of the email before `@`.
-- **The email address is used only for notifications and reminders**, and only n8n receives it.
-- **Users can delete their account.** Convex clears the email and name, and Clerk deletes the sign-in data. See [Decisions](#decisions).
-- **Logs:** error messages contain no email addresses or secrets. The one exception is the admin CLI error "No user with email …", which only the operator sees.
-
-Known gaps are listed in the [production note](docs/production.md#data-and-privacy).
-
-## Development setup
-
-Each developer runs their own local Convex backend and uses their own Clerk development app. No secrets are shared between developers, and no secrets are committed to the repository.
-
-These steps were last checked on 2026-11-01 with Node.js 26.11.1, pnpm 12.11.2, Convex CLI 1.48.0, `@clerk/nextjs` 7.9.22, Hivemind 1.1.0, and Podman 6.1.4 with podman-compose 1.6.0. Dashboards change over time. If a screen does not match, check the current [Convex + Clerk docs](https://docs.convex.dev/auth/clerk).
-
-### Prerequisites
-
-- Node.js 22.12 or later (required by Vitest)
-- pnpm 12.11 or later (`packageManager` in `package.json`)
-- [Hivemind](https://github.com/DarthSim/hivemind), for `pnpm dev` (`brew install hivemind`)
-- A container engine with Compose, for n8n and Mailpit. One of:
-  - Docker with the Docker Compose plugin (`docker compose`)
-  - Podman with a Compose provider (`podman compose`). On macOS, start the Podman machine first (`podman machine start`).
-- A Clerk account (free) at [dashboard.clerk.com](https://dashboard.clerk.com)
-- Optional: [ngrok](https://ngrok.com), only to test the Clerk webhook (step 7)
-
-A Convex account is not required for local development.
-
-### 1. Create a Clerk development app
-
-1. In the Clerk dashboard, create an application:
-   - Application type: **Consumer**
-   - Name: `LendLoop`
-   - Sign-in options: **Email** and **Google** on. All other options off, including **Phone number**.
-2. Skip the "Add authentication to your app" page. Do not use its agent prompt or the Clerk CLI. The code is already in this repository.
-3. Open [dashboard.clerk.com/apps/setup/convex](https://dashboard.clerk.com/apps/setup/convex). Select your workspace, the `LendLoop` application, and the **Development** instance. Select **Activate Convex integration**.
-4. **Required: add the `email` and `name` claims to the session token.** Clerk session tokens do not include them by default, and the Convex integration adds only `aud`. Without this step, sign-in works but your user is not created, and the browser console shows `Clerk token has no email claim`.
-   1. In the Clerk dashboard, select **Configure** in the top menu.
-   2. Select **Sessions** in the left menu.
-   3. In the **Claims** editor, replace the content with:
-
-      ```json
-      {
-        "aud": "convex",
-        "email": "{{user.primary_email_address}}",
-        "name": "{{user.full_name}}"
-      }
-      ```
-
-   4. Select **Save** in the "Unsaved changes" bar at the bottom of the page.
-   5. Check the **Preview**. It must show your email. `"name": null` is OK. The app then uses the part of the email before `@` (and before any `+`) as the name. Other users never see the full email address.
-5. Select **Configure**, then **API keys** in the left menu (under **Instance**).
-6. Clone the repository, and create `.env.local` from `.env.example`. The command never changes an existing `.env.local`:
+2. **Clone the repository and add your Clerk keys.**
 
    ```sh
    git clone <repository-url> lendloop
@@ -276,166 +20,44 @@ A Convex account is not required for local development.
    pnpm setup:env
    ```
 
-   In `.env.local`, set the publishable key from the **Publishable key** section:
+   This creates `.env.local`. Set `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in it, from **Configure > API keys** in the Clerk dashboard.
 
-   ```
-   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
-   ```
+3. **Run the setup script.**
 
-7. Add a secret key. The `default` secret key is locked and cannot be copied. In the **Secret keys** section, select **Add new key**. Clerk shows the full key only once. Copy it before you close the dialog, and add it to `.env.local`:
-
-   ```
-   CLERK_SECRET_KEY=sk_test_...
+   ```sh
+   pnpm bootstrap
    ```
 
-   If you lose the key, create a new one and delete the old one.
+   It installs the dependencies, sets up the local Convex backend, connects Clerk, starts n8n and Mailpit, and imports the n8n workflows. It asks two questions on the first run. Answer them as [setup step 2](docs/setup.md#2-run-the-setup-script) describes. You can run it again at any time.
 
-### 2. Run the setup script
+4. **Start the app.**
 
-```sh
-pnpm bootstrap
-```
+   ```sh
+   pnpm dev
+   ```
 
-The script (`scripts/bootstrap.mjs`):
+   Open [http://localhost:3000](http://localhost:3000) and sign up.
 
-1. Checks the prerequisites and runs `pnpm install`.
-2. Runs `pnpm setup:env`, in case `.env.local` does not exist yet.
-3. Checks the Clerk keys. If a key is missing, it stops and points to step 1. It also adds the sign-in page settings (`NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in` and the two redirect settings) if they are missing. They make Clerk use the in-app `/sign-in` page.
-4. On the first run, configures the local Convex deployment. The Convex CLI asks how to run: select **Start without an account (run Convex locally)**. Do not use `--configure new`, which forces a Convex account login. The CLI writes `CONVEX_DEPLOYMENT`, `NEXT_PUBLIC_CONVEX_URL`, and `NEXT_PUBLIC_CONVEX_SITE_URL` to `.env.local`. Do not edit these values.
-5. Starts the local Convex backend in the background, if it is not running.
-6. Runs the setup steps below in order, and starts the containers (`pnpm containers:up`).
-7. On the first run, asks you to create the n8n owner account. Open [http://localhost:5678](http://localhost:5678). This account exists only in your local n8n (in the `n8n_data` volume). It is not an n8n.io account.
-   1. Enter any email, your name, and a password (8 or more characters, with 1 number and 1 capital letter).
-   2. Leave "I want to receive security and product updates" unchecked. Select **Next**.
-   3. Skip the survey (**Get started**), the license key offer, and the AI Assistant (**Set up later in Settings**).
-   4. Go back to the terminal and press Enter.
-8. Stops the Convex backend again, if it started it.
+5. **Add test data** (optional).
 
-The script never prints a secret. Secrets go to Convex through stdin, and to n8n through a temporary file inside the container that is deleted after the import. You can run it again at any time: each step skips work that is already done. If a step fails, fix the error that it shows, then run `pnpm bootstrap` again.
+   ```sh
+   pnpm db:seed
+   ```
 
-Each setup step is also a script. Run one alone when its input changes, for example after you change a workflow file or rotate a Clerk key. They need the Convex backend, so run `pnpm dev` first.
+   Sign in as `alice+clerk_test@example.com`, `bob+clerk_test@example.com`, or `carol+clerk_test@example.com` with the code `424242`. To try the admin page, sign in as `admin+clerk_test@example.com`.
+
+If something goes wrong, see [Troubleshooting](docs/setup.md#troubleshooting).
+
+## Everyday commands
 
 | Command | What it does |
 |---|---|
-| `pnpm setup:convex` | Sets `CLERK_JWT_ISSUER_DOMAIN` on Convex. The value is the Clerk Frontend API URL, which the publishable key encodes. If another value is already set, it stops. Add `--force` after you switch Clerk apps. |
-| `pnpm setup:clerk` | Copies `CLERK_SECRET_KEY` (and `CLERK_WEBHOOK_SIGNING_SECRET`, if set) to Convex. Turns off Clerk's own **Delete account** for existing users. |
-| `pnpm setup:n8n` | Creates the two n8n signing secrets on Convex, if they do not exist yet. Sets `N8N_NOTIFY_URL` on Convex. Imports the n8n credentials (the signing secrets and the Mailpit SMTP settings) and the three workflows in `n8n/workflows`, publishes them, and restarts n8n. |
+| `pnpm dev` | Start everything: n8n and Mailpit, Next.js, and Convex |
+| `pnpm db:seed` / `pnpm db:reset` | Add test data, or delete all local data |
+| `pnpm check` | Formatting, types, lint, and tests. Run it before you commit. |
+| `pnpm admin:grant <email>` | Give a user admin rights |
 
-### 3. Start the app
-
-```sh
-pnpm dev
-```
-
-This command starts n8n and Mailpit in containers, then runs Next.js and `convex dev` together with Hivemind (`Procfile.dev`).
-
-1. Open [http://localhost:3000](http://localhost:3000).
-2. Select **Sign in to lend or borrow**, and sign up.
-3. Check that your user menu shows at the top right.
-4. Check that Convex created your user:
-
-   ```sh
-   pnpm exec convex data users
-   ```
-
-   The table must show one row with your email. If it is empty, see [Troubleshooting](#troubleshooting).
-
-### 4. Seed test data
-
-```sh
-pnpm db:seed
-```
-
-The script:
-
-1. Creates three Clerk test users in your development instance, or reuses them if they exist: `alice+clerk_test@example.com`, `bob+clerk_test@example.com`, and `carol+clerk_test@example.com`.
-2. Creates their Convex user rows and 12 tools. They do not need to sign in first.
-3. Creates 10 loans between them, with dates relative to today: two overlapping pending requests, a loan in progress, a future booking, two overdue loans (one with reminder activity), an on-time return, a late return, a declined request, and a cancelled request.
-
-You can run it more than once. It does not create duplicate users or tools. **Each run replaces the loans between the three test users**, so the dates stay relative to the current day. Loans that involve any other user are never changed. It runs only with a development secret key (`sk_test_`), and `convex dev` must be running.
-
-To sign in as a test user, enter the email, then the code `424242`. Clerk never sends email to `+clerk_test` addresses. To give new test users a password, set `SEED_USER_PASSWORD` in `.env.local` before you run the seed.
-
-To start again with an empty database, run `pnpm db:reset`, then `pnpm db:seed`. See [Daily development](#daily-development).
-
-### 5. Check the automation
-
-1. Sign in as Bob (`bob+clerk_test@example.com`) and request one of Alice's tools.
-2. Open Mailpit at [http://localhost:8025](http://localhost:8025). Alice has an email: "Bob Jones wants to borrow your …".
-3. In n8n, open **LendLoop: Overdue reminders** and select **Execute workflow**. Each overdue borrower gets a reminder in Mailpit. Run it again: no new reminders are sent.
-
-If you change the Mailpit or n8n host port (see [Daily development](#daily-development)), use that port in the URLs above.
-
-### 6. Make yourself an admin (optional)
-
-New users have the `user` role. Admin rights can only be granted with internal Convex functions. The browser cannot call them. Sign in once first, then run:
-
-```sh
-pnpm admin:grant you@example.com
-```
-
-The result is `"granted"`, or `"already admin"` if you run it again. To check, run `pnpm exec convex data users --format jsonLines` and look at the `role` field.
-
-To remove admin rights:
-
-```sh
-pnpm admin:revoke you@example.com
-```
-
-The result is `"revoked"`, or `"not admin"`.
-
-These scripts call the internal Convex functions `users:grantAdmin` and `users:revokeAdmin`. `convex dev` must be running.
-
-### 7. Test the Clerk webhook (optional)
-
-The `user.deleted` webhook handles users deleted in the Clerk Dashboard. Clerk must reach the local Convex HTTP port (3211), so it needs a tunnel. Account deletion in the app works without this step.
-
-1. Start a tunnel: `ngrok http 3211`. Copy the `https://…` forwarding URL.
-2. In the Clerk dashboard, open **Webhooks** and select **Add Endpoint**:
-   - Endpoint URL: `<forwarding URL>/clerk/webhook`
-   - Subscribe to events: `user.deleted`
-3. Open the new endpoint, copy the **Signing Secret** (`whsec_…`), and add it to `.env.local`:
-
-   ```
-   CLERK_WEBHOOK_SIGNING_SECRET=whsec_...
-   ```
-
-4. Run `pnpm setup:clerk`.
-5. On the endpoint page, open the **Testing** tab, select `user.deleted`, and select **Send Example**. The attempt must show **Succeeded**, with the response `{"result":"unknown user"}`, because the example user does not exist in Convex.
-
-A free ngrok URL changes each time ngrok starts. Then update the endpoint URL in Clerk.
-
-### Environment variables
-
-| Variable | Where it is set | Source |
-|---|---|---|
-| `CONVEX_DEPLOYMENT` | `.env.local` | Written by `convex dev` |
-| `NEXT_PUBLIC_CONVEX_URL` | `.env.local` | Written by `convex dev` |
-| `NEXT_PUBLIC_CONVEX_SITE_URL` | `.env.local` | Written by `convex dev` |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | `.env.local` | Clerk dashboard, **API keys** (step 1) |
-| `CLERK_SECRET_KEY` | `.env.local` | Clerk dashboard, **API keys** (step 1). Secret. |
-| `NEXT_PUBLIC_CLERK_SIGN_IN_URL` | `.env.local` | `/sign-in`, added by `pnpm bootstrap` |
-| `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL` | `.env.local` | `/`, added by `pnpm bootstrap` |
-| `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL` | `.env.local` | `/`, added by `pnpm bootstrap` |
-| `SEED_USER_PASSWORD` | `.env.local` | Optional. Password for new seed users (step 4). |
-| `CLERK_WEBHOOK_SIGNING_SECRET` | `.env.local` | Optional. Clerk dashboard, **Webhooks**, the endpoint's Signing Secret (step 7). Secret. |
-| `N8N_HOST_PORT`, `MAILPIT_HOST_PORT` | `.env.local` | Optional. Host ports for the containers. See [Daily development](#daily-development). |
-| `CLERK_JWT_ISSUER_DOMAIN` | Convex deployment | `pnpm setup:convex`, from the publishable key |
-| `CLERK_SECRET_KEY` | Convex deployment | `pnpm setup:clerk`, from `.env.local`. Secret. |
-| `CLERK_WEBHOOK_SIGNING_SECRET` | Convex deployment | `pnpm setup:clerk`, from `.env.local`, if set. Secret. |
-| `N8N_NOTIFY_URL` | Convex deployment | `pnpm setup:n8n` (the local n8n webhook URL) |
-| `N8N_NOTIFY_SECRET` | Convex deployment, and the n8n credential "LendLoop signing: Convex to n8n" | `pnpm setup:n8n` (random). Secret. |
-| `N8N_API_SECRET` | Convex deployment, and the n8n credential "LendLoop signing: n8n to Convex" | `pnpm setup:n8n` (random). Secret. |
-
-To see the variables and values on your Convex deployment, run `pnpm exec convex env list --include-values`. To see the names only, run `pnpm exec convex env list --names-only`.
-
-### Daily development
-
-```sh
-pnpm dev
-```
-
-Press `Ctrl+C` to stop Next.js and Convex. The containers keep running until `pnpm containers:down`.
+All commands: [Development](docs/development.md).
 
 | Service | URL |
 |---|---|
@@ -443,68 +65,16 @@ Press `Ctrl+C` to stop Next.js and Convex. The containers keep running until `pn
 | n8n | http://localhost:5678 |
 | Mailpit (local email inbox) | http://localhost:8025 |
 
-Commands (run `pnpm run` for the full list):
+## Documentation
 
-| Command | What it does |
+| Guide | Read it to learn |
 |---|---|
-| `pnpm bootstrap` | Set up a new machine, or repair one (step 2) |
-| `pnpm dev` | Start the containers, then Next.js and Convex. `pnpm dev:web` starts Next.js only. |
-| `pnpm containers:up` / `pnpm containers:down` | Start or stop n8n and Mailpit. `down` keeps the data volumes. Uses `podman compose` if Podman is installed, otherwise `docker compose`. Set `COMPOSE="docker compose"` to choose. |
-| `pnpm containers:logs` | Follow the container logs |
-| `pnpm db:seed` | Create the test users, tools, and loans (step 4) |
-| `pnpm db:reset` | Delete all data in the local Convex deployment. Asks first. Environment variables and secrets are kept. It refuses to run on a deployment that is not local. |
-| `pnpm setup:convex`, `pnpm setup:clerk`, `pnpm setup:n8n` | Run one setup step (step 2) |
-| `pnpm admin:grant <email>` / `pnpm admin:revoke <email>` | Change admin rights (step 6) |
-| `pnpm format` | Format the code with oxfmt |
-| `pnpm test` / `pnpm test:once` | Run the tests in watch mode, or once |
-| `pnpm check` | Check formatting, type-check, lint, and test |
+| [Development setup](docs/setup.md) | Every setup step in detail, the environment variables, and troubleshooting |
+| [Development](docs/development.md) | Commands, ports, formatting and linting, tests, and UI components |
+| [Architecture](docs/architecture.md) | The data model, the design decisions, and the pages |
+| [Security](docs/security.md) | Who can do what, request signing, and what data is stored and shared |
+| [Automation (n8n)](docs/automation.md) | The notification, reminder, and error workflows |
 
-**If a port is in use** (for example, another project's Mailpit on 8025), choose another host port in `.env.local`:
+## Deployment
 
-```
-MAILPIT_HOST_PORT=8026
-```
-
-The container scripts and `pnpm setup:n8n` read it from there. Use the new port in the Mailpit or n8n URL.
-
-To open the local Convex dashboard in the browser, run `pnpm exec convex dashboard`.
-
-### Formatting and linting
-
-- **[oxfmt](https://oxc.rs/docs/guide/usage/formatter.html)** formats the code (`.oxfmtrc.json`): Prettier-compatible output, 100-character lines, and Tailwind classes sorted, also inside `cn()` and `cva()`. Run `pnpm format` before you commit. `pnpm check` fails on unformatted files.
-- **Not formatted:** Markdown, because aligned tables would rewrite every row of a table when one cell changes. Also `components/ui` (shadcn CLI output, kept as generated), `convex/_generated`, and the exported n8n workflows.
-- **[oxlint](https://oxc.rs/docs/guide/usage/linter.html)** runs first (`.oxlintrc.json`), then ESLint with `eslint-config-next` for the Next.js and React Hooks rules. `eslint-plugin-oxlint` turns off the ESLint rules that oxlint already checks. `pnpm lint` runs both.
-
-### UI components
-
-The files in `components/ui` come from the shadcn/ui CLI (style `base-nova`, Base UI primitives). To add a component, run:
-
-```sh
-pnpm exec shadcn add <component>
-```
-
-Then review the diff before you commit. The theme follows the OS light or dark setting (`next-themes`).
-
-### Tests
-
-The Convex function tests use [`convex-test`](https://docs.convex.dev/testing/convex-test) with Vitest. They run against an in-memory mock backend, so `convex dev` does not need to run.
-
-```sh
-pnpm test:once   # run all tests once
-pnpm test        # watch mode
-pnpm check       # formatting, types, lint, and tests
-```
-
-### Troubleshooting
-
-**`convex dev` asks you to log in.** You used `--configure new`. Press `Ctrl+C` and run `pnpm exec convex dev` with no options.
-
-**`pnpm install` fails with `ERR_PNPM_IGNORED_BUILDS` for esbuild.** `pnpm-workspace.yaml` must contain `esbuild: true` under `allowBuilds`. The Convex CLI needs esbuild.
-
-**The browser console shows `Clerk token has no email claim. Claims present: ...`.** The session token claims are missing. Do step 1.4, select **Save**, then reload the page. The setting applies to all users of the Clerk app, including existing users.
-
-**The `users` table is empty after sign-in.** Read the recent Convex logs:
-
-```sh
-pnpm exec convex logs --history 10 --success
-```
+The local setup is for development only. [Deployment](docs/deployment.md) lists what to change and add before production.

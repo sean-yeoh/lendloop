@@ -30,7 +30,7 @@ const [major, minor] = process.versions.node.split(".").map(Number);
 if (major < 22 || (major === 22 && minor < 12))
   fail(`Node.js 22.12 or later is required. You have ${process.versions.node}.`);
 if (!commandExists("podman") && !commandExists("docker"))
-  fail("Install Podman or Docker. See README, Prerequisites.");
+  fail("Install Podman or Docker. See docs/setup.md, Prerequisites.");
 if (!commandExists("hivemind"))
   warn("Hivemind is not installed. `pnpm dev` needs it: brew install hivemind");
 ok(`Node.js ${process.versions.node}, ${commandExists("podman") ? "Podman" : "Docker"}`);
@@ -49,7 +49,7 @@ const missing = ["NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "CLERK_SECRET_KEY"].filter
 if (missing.length > 0) {
   fail(
     `${missing.join(" and ")} ${missing.length === 1 ? "is" : "are"} not in ${ENV_FILE}.\n` +
-      "Create a Clerk development app and add the keys as README step 1 describes, then run pnpm bootstrap again.",
+      "Create a Clerk development app and add the keys as docs/setup.md step 1 describes, then run pnpm bootstrap again.",
   );
 }
 const toAdd = Object.entries(SIGN_IN_SETTINGS).filter(([name]) => !env[name]);
@@ -99,7 +99,7 @@ try {
   if (await n8nNeedsOwner(n8nUrl)) {
     console.log(
       `Open ${n8nUrl} and create the owner account (any email, your name, a password).\n` +
-        "This account exists only in your local n8n. README step 8 has the details.",
+        "This account exists only in your local n8n. docs/setup.md step 2 has the details.",
     );
     const rl = createInterface({ input: process.stdin, output: process.stdout });
     await rl.question("Press Enter when the account exists: ");

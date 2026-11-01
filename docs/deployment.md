@@ -1,6 +1,6 @@
-# Production note
+# Deployment
 
-This note lists what must change, or be added, before LendLoop runs in production. The current setup is for local development: a local Convex backend, a Clerk development instance, and n8n and Mailpit in containers.
+This guide lists what must change, or be added, before LendLoop runs in production. The current setup is for local development: a local Convex backend, a Clerk development instance, and n8n and Mailpit in containers.
 
 ## Deployment
 
@@ -23,7 +23,6 @@ Configuration changes:
 
 - **Rate limiting.** Add limits to the mutations that users can repeat (tool creation, loan requests), for example with the Convex rate limiter component, and to the n8n endpoints.
 - **Secret rotation.** Support two active secrets for a short period, so a secret can change without failed requests.
-- **Clerk route protection.** Clerk deprecated `createRouteMatcher`, which `proxy.ts` uses for redirects. Move the sign-in check into each protected page or layout, as the Clerk migration guide describes. Data access is not affected, because Convex checks every call.
 - **Security headers.** Add a Content Security Policy and the usual headers (HSTS, `X-Content-Type-Options`, `Referrer-Policy`) in the Next.js config.
 - **Audit log.** Record admin actions (listing removals, Trusted Lender changes, role changes) with who and when.
 - **Dependency updates.** Turn on automated dependency updates and a vulnerability check in CI. The container images are pinned and must be updated on purpose.
@@ -63,6 +62,6 @@ These are not built yet, and are possible next steps:
 
 ## Testing and CI
 
-- **CI pipeline.** On every pull request: type check, lint, the Convex tests, and `next build`.
+- **Deploy from CI.** CI (`.github/workflows/ci.yml`) already checks every push and pull request. Add a deploy job that runs `convex deploy` and deploys the web app after the checks pass on `main`.
 - **End-to-end tests.** Add browser tests (for example Playwright) for sign-in, listing a tool, requesting, approving, and returning.
 - **Workflow tests.** The n8n workflows are tested by hand today. Add a test that imports them into a disposable n8n container and calls the webhook with signed requests.

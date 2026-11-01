@@ -8,5 +8,7 @@ if (existsSync(TARGET)) {
   console.log(`✓ ${TARGET} exists, kept`);
 } else {
   copyFileSync(".env.example", TARGET, constants.COPYFILE_EXCL);
-  console.log(`✓ Created ${TARGET} from .env.example. Add your Clerk keys (README step 1).`);
+  console.log(
+    `✓ Created ${TARGET} from .env.example. Add your Clerk keys (docs/setup.md, step 1).`,
+  );
 }

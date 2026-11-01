@@ -27,7 +27,9 @@ if (webhookSecret) {
   convexEnvSet("CLERK_WEBHOOK_SIGNING_SECRET", webhookSecret);
   log("Convex: CLERK_WEBHOOK_SIGNING_SECRET set");
 } else {
-  console.log("- CLERK_WEBHOOK_SIGNING_SECRET is not in .env.local. Skipped. See README, step 7.");
+  console.log(
+    "- CLERK_WEBHOOK_SIGNING_SECRET is not in .env.local. Skipped. See docs/setup.md, step 7.",
+  );
 }
 
 const clerk = createClerkClient({ secretKey });
