@@ -47,7 +47,7 @@ export function ToolsBrowser({ category }: { category?: ToolCategory }) {
       {tools?.length === 0 && (
         <p className="text-muted-foreground">No tools in this category yet.</p>
       )}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {tools?.map((tool) => (
           <ToolCard
             key={tool._id}

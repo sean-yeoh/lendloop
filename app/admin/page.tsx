@@ -10,7 +10,7 @@ export default function AdminPage() {
   if (me === undefined) return null;
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-6 py-12">
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-6 py-12">
       <h1 className="text-2xl font-semibold tracking-tight">Admin</h1>
       {me?.role === "admin" ? (
         <p className="text-muted-foreground">

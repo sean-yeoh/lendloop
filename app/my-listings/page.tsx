@@ -18,7 +18,7 @@ export default function MyListingsPage() {
   const [editing, setEditing] = useState<EditableTool | null>(null);
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-12">
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-12">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">My listings</h1>
         <Button onClick={() => setAdding(true)}>Add a tool</Button>
@@ -27,7 +27,7 @@ export default function MyListingsPage() {
       {tools?.length === 0 && (
         <p className="text-muted-foreground">You have no listings. Add a tool that you can lend.</p>
       )}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {tools?.map((tool) => (
           <ToolCard
             key={tool._id}

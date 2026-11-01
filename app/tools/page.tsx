@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Tools · LendLoop" };
 
 export default function ToolsPage({ searchParams }: PageProps<"/tools">) {
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-12">
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-12">
       <h1 className="text-2xl font-semibold tracking-tight">All tools</h1>
       {/* searchParams is request data, so it must render inside Suspense with Cache Components. */}
       <Suspense>
