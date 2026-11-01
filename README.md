@@ -46,6 +46,8 @@ requested -> cancelled
 - **Overlapping requests:** pending requests can overlap. A request cannot overlap an approved loan. Convex checks this when the request is created, and again when the lender approves it. When the lender approves a request, Convex declines the other pending requests that overlap it, and notifies those borrowers.
 - **Only the lender marks a loan returned,** because the lender receives the tool. `returnedAt` records the time. A return after `endDate` is a late return. Until the lender marks it returned, the loan is overdue and n8n sends reminders.
 - **The borrower can cancel a request** while its status is `requested`.
+- **A borrower cannot send two overlapping requests for the same tool.** Different borrowers can.
+- **Mutations check the client's "today".** The borrower's local date decides if a start date is in the past. Convex accepts a client date only within one day of the server date, so a client cannot move "today" far back.
 - **Overdue is not a status.** A loan is overdue when its status is `approved` and its `endDate` is before today.
 - **Owners cannot block dates.** The requirements do not include this. The owner controls each loan with approve and decline. A possible next step is a `toolBlocks` table, checked with the same overlap rule as loans.
 
