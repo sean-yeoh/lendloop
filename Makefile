@@ -11,10 +11,10 @@ export N8N_HOST_PORT ?= 5678
 export MAILPIT_HOST_PORT ?= 8025
 
 .DEFAULT_GOAL := help
-.PHONY: help install dev container-up container-down container-logs seed test check admin-grant admin-revoke
+.PHONY: help install dev container-up container-down container-logs n8n-setup seed test check admin-grant admin-revoke
 
 help: ## Show this list
-	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-16s %s\n", $$1, $$2}'
+	@grep -hE '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-16s %s\n", $$1, $$2}'
 
 install: ## Install dependencies
 	pnpm install
@@ -30,6 +30,9 @@ container-down: ## Stop n8n and Mailpit (data volumes are kept)
 
 container-logs: ## Follow the n8n and Mailpit logs
 	$(COMPOSE) logs -f
+
+n8n-setup: ## Create the signing secrets and import the n8n credentials and workflows
+	node scripts/n8n-setup.mjs
 
 seed: ## Create the test users, tools, and loans (convex dev must run)
 	pnpm seed

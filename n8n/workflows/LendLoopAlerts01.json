@@ -1,0 +1,63 @@
+{
+  "id": "LendLoopAlerts01",
+  "name": "LendLoop: Error alerts",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "On workflow error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "lendloop-on-workflow-error"
+    },
+    {
+      "parameters": {
+        "fromEmail": "LendLoop <notifications@lendloop.local>",
+        "toEmail": "ops@lendloop.local",
+        "subject": "=LendLoop workflow failed: {{ $json.workflow.name }}",
+        "emailFormat": "text",
+        "text": "=Workflow: {{ $json.workflow.name }}\nFailed node: {{ $json.execution.lastNodeExecuted }}\nError: {{ $json.execution.error.message }}\nExecution: {{ $json.execution.url }}\n",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "name": "Alert ops",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        220,
+        0
+      ],
+      "id": "lendloop-alert-ops",
+      "credentials": {
+        "smtp": {
+          "id": "LendLoopSmtp0001",
+          "name": "LendLoop Mailpit SMTP"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "On workflow error": {
+      "main": [
+        [
+          {
+            "node": "Alert ops",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

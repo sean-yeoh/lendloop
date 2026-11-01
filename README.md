@@ -23,6 +23,7 @@ The schema is in `convex/schema.ts`.
 | `tools` | Tool listings: name, category, condition, description, owner, and status (`active` or `removed`). |
 | `loans` | Borrow requests and loans for a date range. |
 | `loanEvents` | Loan activity, from users and from n8n (for example `reminder_sent`). |
+| `notifications` | Outbox for n8n request notifications: `pending`, `sent`, or `failed`, with the attempt count and the last error. |
 
 Loan status changes:
 
@@ -103,6 +104,71 @@ Rules:
 | `users.grantAdmin`, `users.revokeAdmin`, `seed.run` | Internal | Internal | Internal | CLI with deployment access only | grantAdmin and revokeAdmin › grant, grant again, revoke, revoke again |
 
 ✓ allowed. ✗ rejected with an error. "Empty" returns no data. Signed-out callers get no data from list queries, because the Convex client re-runs open queries without a token during sign-out.
+
+## Automation (n8n)
+
+Convex is the source of truth: it decides who may do what, and what is overdue. n8n delivers messages and runs the schedule. The workflow files are in `n8n/workflows`, and `make n8n-setup` imports them.
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| **LendLoop: Request notification** | Webhook, called by Convex | Emails the lender about new and cancelled requests, and the borrower about approvals, declines, and returns. |
+| **LendLoop: Overdue reminders** | Every day at 09:00 (n8n time zone, `TZ` in `compose.yaml`), or **Run now** | Gets the overdue loans from Convex, emails each borrower, and writes each reminder back to Convex. |
+| **LendLoop: Error alerts** | Any failed run of the two workflows above | Emails the workflow name, the failed node, and the error to `ops@lendloop.local`. |
+
+In local development, all email goes to Mailpit.
+
+### Request notification
+
+```mermaid
+sequenceDiagram
+    participant U as Browser
+    participant C as Convex
+    participant N as n8n
+    participant M as Mailpit
+    U->>C: loans.approve
+    C->>C: Same transaction: loan status, loan event, outbox row
+    C-)C: Scheduled action notifications.deliver
+    C->>N: POST /webhook/lendloop-notify (signed)
+    N->>N: Check signature and age, skip duplicate IDs
+    N->>M: Email to the recipient
+    N-->>C: 200
+    C->>C: Outbox row: sent
+```
+
+- **Outbox:** the loan mutation writes a `notifications` row in the same transaction as the status change. A committed change always has a queued notification.
+- **Retries:** if n8n does not answer with 2xx, Convex tries again after 30 seconds, 2, 10, and 30 minutes. After 5 attempts, the row is `failed` with the last error. Admins can list and retry failed rows (`notifications.listProblems`, `notifications.retry`).
+- **Duplicates:** each notification has a stable ID. n8n records the IDs that it emailed and skips a repeated delivery.
+- **Data minimization:** the payload has the event, the tool name, the dates, the recipient's name and email, and the other person's name. It has no other email address and no user IDs.
+
+### Overdue reminders
+
+```mermaid
+sequenceDiagram
+    participant N as n8n
+    participant C as Convex
+    participant M as Mailpit
+    N->>C: GET /n8n/overdue?date=2026-11-10 (signed)
+    C-->>N: Overdue loans without a reminder for that date
+    loop Each loan
+        N->>M: Reminder to the borrower
+        N->>C: POST /n8n/reminders {loanId, date} (signed)
+        C-->>N: 201 created, or 200 {created: false} if already recorded
+    end
+```
+
+- **Idempotent write-back:** Convex stores each reminder as a `reminder_sent` loan event with the key `reminder:<loanId>:<date>`. A repeated request (an n8n retry, or a second run on the same day) creates nothing and returns `{ "created": false }`. A loan that already has a reminder for the date is not listed again.
+- **Retries:** the n8n HTTP and email nodes retry 3 times, 5 seconds apart. If they still fail, the run fails and the error workflow sends an alert.
+
+### Request signing
+
+Every request between Convex and n8n is signed with HMAC-SHA256, in both directions, with a different secret for each direction.
+
+- Headers: `X-LendLoop-Timestamp` (Unix seconds) and `X-LendLoop-Signature` (hex).
+- Signed message: `<timestamp>.<METHOD>.<path and query>.<body>`. A signature is valid only for that exact request.
+- The receiver rejects a missing or wrong signature, and a timestamp more than 5 minutes from its own clock (replay protection), with HTTP 401. Signatures are compared in constant time.
+- Convex: `convex/lib/signature.ts` and `convex/http.ts`. n8n: a Code node rebuilds the message from the raw request body, and a Crypto node computes the HMAC with the secret from an n8n credential.
+- **The exported workflow JSON contains no secrets.** It refers to the credentials by ID. `make n8n-setup` creates the credentials from the Convex environment variables.
+- n8n blocks access to environment variables in workflows by default (n8n 2.x). This setting is kept. The Convex URL (`http://host.docker.internal:3211`) and the app URL are plain values in the workflow files, because they are not secret. For another environment, change the Convex URL in the **Get overdue loans** and **Record reminder** nodes, and the app URL in the **Compose email** and **Compose reminder** nodes.
 
 ## Development setup
 
@@ -257,6 +323,38 @@ You can run it more than once. It does not create duplicate users or tools. **Ea
 
 To sign in as a test user, enter the email, then the code `424242`. Clerk never sends email to `+clerk_test` addresses. To give new test users a password, set `SEED_USER_PASSWORD` in `.env.local` before you run the seed.
 
+### 8. Connect n8n
+
+1. Start the containers:
+
+   ```sh
+   make container-up
+   ```
+
+2. Open [http://localhost:5678](http://localhost:5678). n8n asks you to create an owner account. This account exists only in your local n8n (in the `n8n_data` volume). It is not an n8n.io account.
+   1. Enter any email, your name, and a password (8 or more characters, with 1 number and 1 capital letter).
+   2. Leave "I want to receive security and product updates" unchecked. Select **Next**.
+   3. Skip the survey (**Get started**), the license key offer, and the AI Assistant (**Set up later in Settings**).
+3. With `convex dev` running, run:
+
+   ```sh
+   make n8n-setup
+   ```
+
+   The script:
+   1. Creates the two signing secrets on your Convex deployment (`N8N_NOTIFY_SECRET` and `N8N_API_SECRET`), if they do not exist yet.
+   2. Sets `N8N_NOTIFY_URL` on Convex to the local n8n webhook.
+   3. Imports three n8n credentials with the same secrets and the Mailpit SMTP settings, and the three workflows in `n8n/workflows`.
+   4. Publishes the workflows and restarts n8n.
+
+   It never prints a secret. You can run it again at any time, for example after you change a workflow file.
+4. Check the result:
+   1. Sign in as Bob (`bob+clerk_test@example.com`) and request one of Alice's tools.
+   2. Open Mailpit at [http://localhost:8025](http://localhost:8025). Alice has an email: "Bob Jones wants to borrow your …".
+   3. In n8n, open **LendLoop: Overdue reminders** and select **Execute workflow**. Each overdue borrower gets a reminder in Mailpit. Run it again: no new reminders are sent.
+
+If you change the Mailpit or n8n host port (see [Daily development](#daily-development)), use that port in the URLs above.
+
 ### Environment variables
 
 | Variable | Where it is set | Source |
@@ -271,6 +369,9 @@ To sign in as a test user, enter the email, then the code `424242`. Clerk never 
 | `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL` | `.env.local` | `/` (step 3.8) |
 | `SEED_USER_PASSWORD` | `.env.local` | Optional. Password for new seed users (step 7). |
 | `CLERK_JWT_ISSUER_DOMAIN` | Convex deployment (`convex env set`) | Clerk dashboard, **API keys**, Frontend API URL |
+| `N8N_NOTIFY_URL` | Convex deployment | `make n8n-setup` (the local n8n webhook URL) |
+| `N8N_NOTIFY_SECRET` | Convex deployment, and the n8n credential "LendLoop signing: Convex to n8n" | `make n8n-setup` (random). Secret. |
+| `N8N_API_SECRET` | Convex deployment, and the n8n credential "LendLoop signing: n8n to Convex" | `make n8n-setup` (random). Secret. |
 
 To see the variables and values on your Convex deployment:
 
@@ -302,6 +403,7 @@ Run `make` to see all commands:
 | `make container-up` / `make container-down` | Start or stop n8n and Mailpit. `down` keeps the data volumes. |
 | `make container-logs` | Follow the container logs |
 | `make seed` | Create the test users, tools, and loans (step 7) |
+| `make n8n-setup` | Create the signing secrets, and import the n8n credentials and workflows (step 8) |
 | `make test` / `make check` | Run the tests, or type-check, lint, and test |
 | `make admin-grant EMAIL=…` / `make admin-revoke EMAIL=…` | Change admin rights (step 6) |
 

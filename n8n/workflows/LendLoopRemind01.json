@@ -1,0 +1,331 @@
+{
+  "id": "LendLoopRemind01",
+  "name": "LendLoop: Overdue reminders",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "LendLoopAlerts01",
+    "saveManualExecutions": true
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "name": "Every day at 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "lendloop-every-day-at-0900"
+    },
+    {
+      "parameters": {},
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ],
+      "id": "lendloop-run-now"
+    },
+    {
+      "parameters": {
+        "jsCode": "// The local date in the workflow time zone, and the signed message for the overdue request.\nconst date = $now.toFormat('yyyy-MM-dd');\nconst timestamp = String(Math.floor(Date.now() / 1000));\nconst pathAndQuery = `/n8n/overdue?date=${date}`;\nreturn [{ json: { date, timestamp, pathAndQuery, message: `${timestamp}.GET.${pathAndQuery}.` } }];"
+      },
+      "name": "Prepare request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "id": "lendloop-prepare-request"
+    },
+    {
+      "parameters": {
+        "action": "hmac",
+        "type": "SHA256",
+        "value": "={{ $json.message }}",
+        "dataPropertyName": "signature",
+        "encoding": "hex"
+      },
+      "name": "Sign request",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "id": "lendloop-sign-request",
+      "credentials": {
+        "crypto": {
+          "id": "LendLoopSigOut01",
+          "name": "LendLoop signing: n8n to Convex"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://host.docker.internal:3211{{ $json.pathAndQuery }}",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-LendLoop-Timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "X-LendLoop-Signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Get overdue loans",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        0
+      ],
+      "id": "lendloop-get-overdue-loans",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// One email per overdue loan. An empty list from Convex produces no items, so the run ends here.\nconst APP_URL = 'http://localhost:3000';\nreturn $input.all().flatMap((item, index) => {\n  const loan = item.json;\n  if (!loan.loanId) return [];\n  const days = loan.daysOverdue === 1 ? '1 day' : `${loan.daysOverdue} days`;\n  return [{\n    json: {\n      loanId: loan.loanId,\n      to: loan.borrower.email,\n      subject: `Reminder: please return the ${loan.tool.name}`,\n      text: `Hi ${loan.borrower.name},\\n\\nThe ${loan.tool.name} that you borrowed from ${loan.lender.name} was due on ${loan.endDate} (${days} ago). Please return it, or contact ${loan.lender.name}.\\n\\nOpen LendLoop: ${APP_URL}/requests\\n`,\n    },\n    pairedItem: { item: index },\n  }];\n});"
+      },
+      "name": "Compose reminder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ],
+      "id": "lendloop-compose-reminder"
+    },
+    {
+      "parameters": {
+        "fromEmail": "LendLoop <notifications@lendloop.local>",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.text }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "name": "Send reminder",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1100,
+        0
+      ],
+      "id": "lendloop-send-reminder",
+      "credentials": {
+        "smtp": {
+          "id": "LendLoopSmtp0001",
+          "name": "LendLoop Mailpit SMTP"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sign the write-back for this loan. Convex stores one reminder per loan per day.\nconst { date } = $('Prepare request').first().json;\nconst body = JSON.stringify({ loanId: $('Compose reminder').item.json.loanId, date });\nconst timestamp = String(Math.floor(Date.now() / 1000));\nreturn { json: { body, timestamp, message: `${timestamp}.POST./n8n/reminders.${body}` } };",
+        "mode": "runOnceForEachItem"
+      },
+      "name": "Prepare write-back",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        0
+      ],
+      "id": "lendloop-prepare-write-back"
+    },
+    {
+      "parameters": {
+        "action": "hmac",
+        "type": "SHA256",
+        "value": "={{ $json.message }}",
+        "dataPropertyName": "signature",
+        "encoding": "hex"
+      },
+      "name": "Sign write-back",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        0
+      ],
+      "id": "lendloop-sign-write-back",
+      "credentials": {
+        "crypto": {
+          "id": "LendLoopSigOut01",
+          "name": "LendLoop signing: n8n to Convex"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3211/n8n/reminders",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-LendLoop-Timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "X-LendLoop-Signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}"
+      },
+      "name": "Record reminder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1760,
+        0
+      ],
+      "id": "lendloop-record-reminder",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "Every day at 09:00": {
+      "main": [
+        [
+          {
+            "node": "Prepare request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare request": {
+      "main": [
+        [
+          {
+            "node": "Sign request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign request": {
+      "main": [
+        [
+          {
+            "node": "Get overdue loans",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get overdue loans": {
+      "main": [
+        [
+          {
+            "node": "Compose reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose reminder": {
+      "main": [
+        [
+          {
+            "node": "Send reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send reminder": {
+      "main": [
+        [
+          {
+            "node": "Prepare write-back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare write-back": {
+      "main": [
+        [
+          {
+            "node": "Sign write-back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign write-back": {
+      "main": [
+        [
+          {
+            "node": "Record reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Prepare request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
