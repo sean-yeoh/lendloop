@@ -11,6 +11,7 @@
 import type * as account from "../account.js";
 import type * as automation from "../automation.js";
 import type * as clerk from "../clerk.js";
+import type * as dev from "../dev.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_dates from "../lib/dates.js";
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   account: typeof account;
   automation: typeof automation;
   clerk: typeof clerk;
+  dev: typeof dev;
   http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/dates": typeof lib_dates;

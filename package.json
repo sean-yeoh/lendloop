@@ -14,6 +14,7 @@
     "admin:grant": "node scripts/admin.mjs grant",
     "admin:revoke": "node scripts/admin.mjs revoke",
     "seed": "node --env-file=.env.local scripts/seed.mjs",
+    "db:reset": "node scripts/db-reset.mjs",
     "clerk:setup": "node --env-file=.env.local scripts/clerk-setup.mjs"
   },
   "dependencies": {
