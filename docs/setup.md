@@ -11,8 +11,8 @@ These steps were last checked on 2026-11-01 with Node.js 26.11.1, pnpm 12.11.2, 
 - pnpm 12.11 or later (`packageManager` in `package.json`)
 - [Hivemind](https://github.com/DarthSim/hivemind), for `pnpm dev` (`brew install hivemind`)
 - A container engine with Compose, for n8n and Mailpit. One of:
-  - Docker with the Docker Compose plugin (`docker compose`)
-  - Podman with a Compose provider (`podman compose`). On macOS, start the Podman machine first (`podman machine start`).
+  - Docker with the Docker Compose plugin (`docker compose`). This is the default.
+  - Podman with a Compose provider (`podman compose`). The scripts use it when Docker is not installed. If both are installed, add `COMPOSE=podman compose` to `.env.local`. On macOS, start the Podman machine first (`podman machine start`).
 - A Clerk account (free) at [dashboard.clerk.com](https://dashboard.clerk.com)
 - Optional: [ngrok](https://ngrok.com), only to test the Clerk webhook (step 7)
 
@@ -196,6 +196,7 @@ A free ngrok URL changes each time ngrok starts. Then update the endpoint URL in
 | `SEED_USER_PASSWORD` | `.env.local` | Optional. Password for new seed users (step 4). |
 | `CLERK_WEBHOOK_SIGNING_SECRET` | `.env.local` | Optional. Clerk dashboard, **Webhooks**, the endpoint's Signing Secret (step 7). Secret. |
 | `N8N_HOST_PORT`, `MAILPIT_HOST_PORT` | `.env.local` | Optional. Host ports for the containers. See [Daily development](development.md#daily-development). |
+| `COMPOSE` | `.env.local` | Optional. The Compose command, for example `podman compose`. The default is `docker compose` when Docker is installed, otherwise `podman compose`. |
 | `CLERK_JWT_ISSUER_DOMAIN` | Convex deployment | `pnpm setup:convex`, from the publishable key |
 | `CLERK_SECRET_KEY` | Convex deployment | `pnpm setup:clerk`, from `.env.local`. Secret. |
 | `CLERK_WEBHOOK_SIGNING_SECRET` | Convex deployment | `pnpm setup:clerk`, from `.env.local`, if set. Secret. |

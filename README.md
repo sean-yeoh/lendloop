@@ -8,7 +8,7 @@ Built with Next.js 16, React 19, Tailwind CSS 4, shadcn/ui, Clerk (sign-in), Con
 
 ## Quick start
 
-You need Node.js 22.12+, pnpm 12, [Hivemind](https://github.com/DarthSim/hivemind), Podman or Docker, and a free [Clerk](https://dashboard.clerk.com) account. No Convex account is needed. Details: [Prerequisites](docs/setup.md#prerequisites).
+You need Node.js 22.12+, pnpm 12, [Hivemind](https://github.com/DarthSim/hivemind), Docker (or Podman), and a free [Clerk](https://dashboard.clerk.com) account. No Convex account is needed. Details: [Prerequisites](docs/setup.md#prerequisites).
 
 1. **Create a Clerk app**, and add the email and name claims to its session token. Follow [setup step 1](docs/setup.md#1-create-a-clerk-development-app) exactly. Without the claims, sign-in works but no user is created.
 

@@ -13,6 +13,7 @@
 import { execFileSync, spawn } from "node:child_process";
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
+import { commandExists, composeCommand } from "./lib/containers.mjs";
 
 // The Convex backend that this script starts, if any. Stopped on exit.
 let backend = null;
@@ -29,11 +30,12 @@ step("Prerequisites");
 const [major, minor] = process.versions.node.split(".").map(Number);
 if (major < 22 || (major === 22 && minor < 12))
   fail(`Node.js 22.12 or later is required. You have ${process.versions.node}.`);
-if (!commandExists("podman") && !commandExists("docker"))
-  fail("Install Podman or Docker. See docs/setup.md, Prerequisites.");
+// COMPOSE may be set in .env.local, which this script reads itself.
+const compose = composeCommand({ ...process.env, ...readEnv() });
+if (!compose) fail("Install Docker or Podman, or set COMPOSE. See docs/setup.md, Prerequisites.");
 if (!commandExists("hivemind"))
   warn("Hivemind is not installed. `pnpm dev` needs it: brew install hivemind");
-ok(`Node.js ${process.versions.node}, ${commandExists("podman") ? "Podman" : "Docker"}`);
+ok(`Node.js ${process.versions.node}, containers with \`${compose.join(" ")}\``);
 
 step("Dependencies");
 run("pnpm", ["install"]);
@@ -176,15 +178,6 @@ function run(command, args) {
     stop(
       `\`${command} ${args.join(" ")}\` failed. Fix the error above, then run pnpm bootstrap again.`,
     );
-  }
-}
-
-function commandExists(command) {
-  try {
-    execFileSync("sh", ["-c", `command -v ${command}`], { stdio: "ignore" });
-    return true;
-  } catch {
-    return false;
   }
 }
 

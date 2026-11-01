@@ -22,7 +22,7 @@ Commands (run `pnpm run` for the full list):
 |---|---|
 | `pnpm bootstrap` | Set up a new machine, or repair one ([setup step 2](setup.md#2-run-the-setup-script)) |
 | `pnpm dev` | Start the containers, then Next.js and Convex. `pnpm dev:web` starts Next.js only. |
-| `pnpm containers:up` / `pnpm containers:down` | Start or stop n8n and Mailpit. `down` keeps the data volumes. Uses `podman compose` if Podman is installed, otherwise `docker compose`. Set `COMPOSE="docker compose"` to choose. |
+| `pnpm containers:up` / `pnpm containers:down` | Start or stop n8n and Mailpit. `down` keeps the data volumes. Uses `docker compose` if Docker is installed, otherwise `podman compose`. To choose, set `COMPOSE` in `.env.local`, for example `COMPOSE=podman compose`. `pnpm setup:n8n` uses the same engine. |
 | `pnpm containers:logs` | Follow the container logs |
 | `pnpm db:seed` | Create the test users, tools, and loans ([setup step 4](setup.md#4-seed-test-data)) |
 | `pnpm db:reset` | Delete all data in the local Convex deployment. Asks first. Environment variables and secrets are kept. It refuses to run on a deployment that is not local. |

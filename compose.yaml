@@ -1,6 +1,6 @@
 # Local services for development: n8n (workflow automation) and Mailpit (a local email inbox).
-# Start with `pnpm containers:up` (scripts/compose.mjs). Works with `podman compose` and
-# `docker compose`. If a host port is taken, set N8N_HOST_PORT or MAILPIT_HOST_PORT in .env.local.
+# Start with `pnpm containers:up` (scripts/compose.mjs). Works with `docker compose` (the default)
+# and `podman compose`. If a host port is taken, set N8N_HOST_PORT or MAILPIT_HOST_PORT in .env.local.
 # The fixed project name keeps the container and volume names the same in any clone folder.
 name: lendloop
 

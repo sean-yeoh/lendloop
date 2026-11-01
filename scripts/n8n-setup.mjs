@@ -12,12 +12,15 @@ import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { readdirSync } from "node:fs";
 import path from "node:path";
+import { containerEngine } from "./lib/containers.mjs";
 
 const WORKFLOW_DIR = "n8n/workflows";
 const NOTIFY_PATH = "/webhook/lendloop-notify";
 const n8nPort = process.env.N8N_HOST_PORT || "5678";
 
-const engine = commandExists("podman") ? "podman" : "docker";
+// The same engine as pnpm containers:up: Docker by default, or COMPOSE (scripts/lib/containers.mjs).
+const engine = containerEngine();
+if (!engine) fail("Install Docker or Podman, or set COMPOSE. See docs/setup.md, Prerequisites.");
 const container = findN8nContainer();
 
 // 1. Signing secrets, one per direction. Existing values are kept.
@@ -94,7 +97,9 @@ function findN8nContainer() {
   ])
     .toString()
     .trim();
-  if (!ids) fail("The n8n container is not running. Run `pnpm containers:up` first.");
+  if (!ids) {
+    fail(`The n8n container is not running in ${engine}. Run \`pnpm containers:up\` first.`);
+  }
   return ids.split("\n")[0];
 }
 
@@ -145,15 +150,6 @@ function n8nWithFile(file, content, command) {
 
 function run(command, args) {
   execFileSync(command, args, { stdio: ["ignore", "ignore", "inherit"] });
-}
-
-function commandExists(command) {
-  try {
-    execFileSync("sh", ["-c", `command -v ${command}`], { stdio: "ignore" });
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function log(message) {
