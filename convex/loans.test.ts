@@ -341,3 +341,27 @@ describe("navCounts", () => {
     });
   });
 });
+
+describe("loan activity", () => {
+  test("shows reminders from n8n and the latest notification status", async () => {
+    const { t, alice, bob, request } = await scenario();
+    const loanId = await request(bob, "2026-11-12", "2026-11-14");
+    await alice.as.mutation(api.loans.approve, { loanId });
+    const day = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("loanEvents", { loanId, type: "reminder_sent", source: "n8n", at: now - day });
+      await ctx.db.insert("loanEvents", { loanId, type: "reminder_sent", source: "n8n", at: now - 2 * day });
+    });
+
+    const [loan] = await bob.as.query(api.loans.myRequests, {});
+    expect(loan!.activity).toEqual({
+      reminderCount: 2,
+      lastReminderAt: now - day,
+      notification: { event: "approved", status: "pending", at: expect.any(Number) },
+    });
+
+    const [fresh] = await alice.as.query(api.loans.incoming, {});
+    expect(fresh!.activity.reminderCount).toBe(2);
+  });
+});

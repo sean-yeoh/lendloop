@@ -151,6 +151,7 @@ export const myRequests = query({
     return await Promise.all(
       loans.map(async (loan) => ({
         ...loanFields(loan),
+        activity: await loanActivity(ctx, loan._id),
         tool: await toolSummary(ctx, loan.toolId),
         lender: await personSummary(ctx, loan.lenderId),
       })),
@@ -174,6 +175,7 @@ export const incoming = query({
     return await Promise.all(
       loans.map(async (loan) => ({
         ...loanFields(loan),
+        activity: await loanActivity(ctx, loan._id),
         tool: await toolSummary(ctx, loan.toolId),
         borrower: await personSummary(ctx, loan.borrowerId),
       })),
@@ -189,6 +191,7 @@ export const listAll = query({
     return await Promise.all(
       loans.map(async (loan) => ({
         ...loanFields(loan),
+        activity: await loanActivity(ctx, loan._id),
         tool: await toolSummary(ctx, loan.toolId),
         borrower: await personSummary(ctx, loan.borrowerId),
         lender: await personSummary(ctx, loan.lenderId),
@@ -228,6 +231,35 @@ function loanFields(loan: Doc<"loans">) {
     endDate: loan.endDate,
     status: loan.status,
     returnedAt: loan.returnedAt,
+  };
+}
+
+// Recent automation activity for a loan: reminders from n8n, and the delivery of the latest
+// notification email. Times only, no message content or addresses.
+async function loanActivity(ctx: QueryCtx, loanId: Id<"loans">) {
+  const events = await ctx.db
+    .query("loanEvents")
+    .withIndex("by_loan", (q) => q.eq("loanId", loanId))
+    .collect();
+  const reminders = events.filter((event) => event.type === "reminder_sent");
+
+  let notification: { event: Doc<"loanEvents">["type"]; status: Doc<"notifications">["status"]; at: number } | null =
+    null;
+  for (const event of [...events].reverse()) {
+    const row = await ctx.db
+      .query("notifications")
+      .withIndex("by_loanEvent", (q) => q.eq("loanEventId", event._id))
+      .first();
+    if (row) {
+      notification = { event: event.type, status: row.status, at: row.sentAt ?? event.at };
+      break;
+    }
+  }
+
+  return {
+    reminderCount: reminders.length,
+    lastReminderAt: reminders.length > 0 ? Math.max(...reminders.map((event) => event.at)) : null,
+    notification,
   };
 }
 

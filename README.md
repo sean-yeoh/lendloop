@@ -52,6 +52,7 @@ requested -> cancelled
 - **A borrower cannot send two overlapping requests for the same tool.** Different borrowers can.
 - **Mutations check the client's "today".** The borrower's local date decides if a start date is in the past. Convex accepts a client date only within one day of the server date, so a client cannot move "today" far back.
 - **Overdue is not a status.** A loan is overdue when its status is `approved` and its `endDate` is before today.
+- **Loan activity shows automation results.** Each loan in My requests, Incoming, and the admin loan list shows the last n8n reminder ("Reminder sent 2 days ago", with the count) and the delivery status of the latest notification email. It shows times and statuses only, no message content.
 - **Trusted Lender is a badge.** Admins give it to reliable lenders. Signed-in users see it next to the lender's name. It changes no loan rules.
 - **The admin user list shows names, not emails.** The Trusted Lender decision needs no contact data.
 - **Owners cannot block dates.** The requirements do not include this. The owner controls each loan with approve and decline. A possible next step is a `toolBlocks` table, checked with the same overlap rule as loans.
@@ -66,7 +67,7 @@ requested -> cancelled
 | `/my-listings` | Signed-in users | Your tools. Add, edit, and remove. |
 | `/requests` | Signed-in users | "My requests": tools that you asked to borrow. Cancel a pending request. |
 | `/incoming` | Signed-in users | "Incoming requests": requests for your tools. Approve, decline, and mark returned. |
-| `/admin` | Admins | All loans with a status filter, all listings with remove, and users with the Trusted Lender switch. |
+| `/admin` | Admins | All loans with a status filter and activity, all listings with remove, users with the Trusted Lender switch, and notifications that failed or are retrying, with **Retry**. |
 
 `proxy.ts` sends signed-out visitors from signed-in pages to Clerk sign-in. This is for UX only. The Convex functions check access on each call.
 

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { CategoryIcon } from "@/components/tools/CategoryIcon";
 import { formatRange, fromDateString, type LoanStatus } from "@/lib/loans";
 import type { ToolCategory } from "@/lib/tools";
+import { LoanActivity, type LoanActivityData } from "./LoanActivity";
 import { LoanStatusBadge } from "./LoanStatusBadge";
 
 export type LoanRowData = {
@@ -11,6 +12,7 @@ export type LoanRowData = {
   status: LoanStatus;
   returnedAt?: number;
   tool: { name: string; category: ToolCategory };
+  activity: LoanActivityData;
 };
 
 export function LoanRow({
@@ -38,6 +40,7 @@ export function LoanRow({
           {formatRange(loan.startDate, loan.endDate)} · {person}
           {loan.returnedAt !== undefined && <> · {returnedText(loan.returnedAt, loan.endDate)}</>}
         </p>
+        <LoanActivity activity={loan.activity} />
       </div>
       {actions && <div className="flex gap-2">{actions}</div>}
     </li>

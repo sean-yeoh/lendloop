@@ -2,6 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { useState } from "react";
+import { LoanActivity } from "@/components/loans/LoanActivity";
 import { LoanStatusBadge } from "@/components/loans/LoanStatusBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -58,7 +59,8 @@ export function AdminLoans({ today }: { today: string }) {
               <TableHead>Borrower</TableHead>
               <TableHead>Lender</TableHead>
               <TableHead>Dates</TableHead>
-              <TableHead className="pr-4">Status</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="pr-4">Activity</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -68,14 +70,17 @@ export function AdminLoans({ today }: { today: string }) {
                 <TableCell>{loan.borrower.name}</TableCell>
                 <TableCell>{loan.lender.name}</TableCell>
                 <TableCell>{formatRange(loan.startDate, loan.endDate)}</TableCell>
-                <TableCell className="pr-4">
+                <TableCell>
                   <LoanStatusBadge loan={loan} today={today} />
+                </TableCell>
+                <TableCell className="pr-4">
+                  <LoanActivity activity={loan.activity} />
                 </TableCell>
               </TableRow>
             ))}
             {loans && shown.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                   No loans match this filter.
                 </TableCell>
               </TableRow>
