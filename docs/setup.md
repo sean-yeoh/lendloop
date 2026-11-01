@@ -45,7 +45,7 @@ A Convex account is not required for local development.
 6. Clone the repository, and create `.env.local` from `.env.example`. The command never changes an existing `.env.local`:
 
    ```sh
-   git clone <repository-url> lendloop
+   git clone https://github.com/sean-yeoh/lendloop
    cd lendloop
    pnpm setup:env
    ```

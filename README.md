@@ -15,7 +15,7 @@ You need Node.js 22.12+, pnpm 12, [Hivemind](https://github.com/DarthSim/hivemin
 2. **Clone the repository and add your Clerk keys.**
 
    ```sh
-   git clone <repository-url> lendloop
+   git clone https://github.com/sean-yeoh/lendloop
    cd lendloop
    pnpm setup:env
    ```
