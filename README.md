@@ -209,8 +209,9 @@ The script:
 
 1. Creates three Clerk test users in your development instance, or reuses them if they exist: `alice+clerk_test@example.com`, `bob+clerk_test@example.com`, and `carol+clerk_test@example.com`.
 2. Creates their Convex user rows and 12 tools. They do not need to sign in first.
+3. Creates 10 loans between them, with dates relative to today: two overlapping pending requests, a loan in progress, a future booking, two overdue loans with reminder activity, an on-time return, a late return, a declined request, and a cancelled request.
 
-You can run it more than once. It does not create duplicates. It runs only with a development secret key (`sk_test_`), and `convex dev` must be running.
+You can run it more than once. It does not create duplicate users or tools. **Each run replaces the loans between the three test users**, so the dates stay relative to the current day. Loans that involve any other user are never changed. It runs only with a development secret key (`sk_test_`), and `convex dev` must be running.
 
 To sign in as a test user, enter the email, then the code `424242`. Clerk never sends email to `+clerk_test` addresses. To give new test users a password, set `SEED_USER_PASSWORD` in `.env.local` before you run the seed.
 

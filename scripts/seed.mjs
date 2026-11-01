@@ -53,7 +53,12 @@ for (const seedUser of seedUsers) {
 }
 
 try {
-  execFileSync("convex", ["run", "seed:run", JSON.stringify({ users })], { stdio: "inherit" });
+  // The local date, the same date that the app sends as "today".
+  const now = new Date();
+  const today = [now.getFullYear(), now.getMonth() + 1, now.getDate()]
+    .map((part) => String(part).padStart(2, "0"))
+    .join("-");
+  execFileSync("convex", ["run", "seed:run", JSON.stringify({ users, today })], { stdio: "inherit" });
 } catch {
   process.exit(1);
 }
