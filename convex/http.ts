@@ -1,10 +1,12 @@
+import { verifyWebhook } from "@clerk/backend/webhooks";
 import { ConvexError } from "convex/values";
 import { httpRouter } from "convex/server";
 import { internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { verifyRequest } from "./lib/signature";
 
-// Endpoints for n8n. Every request must be signed with N8N_API_SECRET (see lib/signature.ts).
+// Endpoints for n8n, signed with N8N_API_SECRET (see lib/signature.ts), and for Clerk webhooks,
+// signed by Clerk with CLERK_WEBHOOK_SIGNING_SECRET.
 const http = httpRouter();
 
 http.route({
@@ -45,13 +47,48 @@ http.route({
   }),
 });
 
+// Clerk sends user.deleted when a user is deleted in the Clerk Dashboard or with the Backend API.
+// Clerk retries until it gets a 2xx response and may send an event more than once, so the
+// handler is safe to repeat. Other events are acknowledged and ignored.
+http.route({
+  path: "/clerk/webhook",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const signingSecret = process.env.CLERK_WEBHOOK_SIGNING_SECRET;
+    if (!signingSecret)
+      return json(
+        { error: "CLERK_WEBHOOK_SIGNING_SECRET is not set on the Convex deployment" },
+        500,
+      );
+
+    let event;
+    try {
+      event = await verifyWebhook(request, { signingSecret });
+    } catch {
+      return json({ error: "Invalid webhook signature" }, 400);
+    }
+    if (event.type !== "user.deleted") return json({ ignored: event.type }, 200);
+    if (!event.data.id) return json({ error: "The event has no user ID" }, 400);
+
+    const result = await ctx.runMutation(internal.account.closeDeletedClerkUser, {
+      clerkUserId: event.data.id,
+    });
+    return json({ result }, 200);
+  }),
+});
+
 async function verify(request: Request, body: string): Promise<Response | null> {
   const secret = process.env.N8N_API_SECRET;
   if (!secret) return json({ error: "N8N_API_SECRET is not set on the Convex deployment" }, 500);
   const url = new URL(request.url);
   const result = await verifyRequest(
     secret,
-    { method: request.method, pathAndQuery: url.pathname + url.search, body, headers: request.headers },
+    {
+      method: request.method,
+      pathAndQuery: url.pathname + url.search,
+      body,
+      headers: request.headers,
+    },
     Date.now(),
   );
   return result.ok ? null : json({ error: result.reason }, 401);
@@ -73,7 +110,10 @@ async function run(handler: () => Promise<unknown>): Promise<Response> {
 }
 
 function json(body: unknown, status: number) {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 export default http;

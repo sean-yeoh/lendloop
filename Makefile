@@ -11,7 +11,7 @@ export N8N_HOST_PORT ?= 5678
 export MAILPIT_HOST_PORT ?= 8025
 
 .DEFAULT_GOAL := help
-.PHONY: help install dev container-up container-down container-logs n8n-setup seed test check admin-grant admin-revoke
+.PHONY: help install dev container-up container-down container-logs clerk-setup n8n-setup seed test check admin-grant admin-revoke
 
 help: ## Show this list
 	@grep -hE '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-16s %s\n", $$1, $$2}'
@@ -30,6 +30,9 @@ container-down: ## Stop n8n and Mailpit (data volumes are kept)
 
 container-logs: ## Follow the n8n and Mailpit logs
 	$(COMPOSE) logs -f
+
+clerk-setup: ## Copy the Clerk keys to Convex and turn off Clerk's own Delete account
+	pnpm clerk:setup
 
 n8n-setup: ## Create the signing secrets and import the n8n credentials and workflows
 	node scripts/n8n-setup.mjs

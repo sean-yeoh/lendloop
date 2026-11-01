@@ -1,7 +1,13 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
-import { internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import {
+  internalAction,
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
 import { requireAdmin } from "./lib/auth";
 import { signRequest } from "./lib/signature";
 
@@ -38,7 +44,8 @@ export const payload = internalQuery({
     ]);
     const recipient = route.to === "lender" ? lender : borrower;
     const counterpart = route.to === "lender" ? borrower : lender;
-    if (!tool || !recipient || !counterpart) return null;
+    // A deleted account has no email address left to notify.
+    if (!tool || !recipient || !counterpart || recipient.deletedAt) return null;
 
     return {
       // Stable per notification, so n8n can ignore a delivery that it already handled.
@@ -98,7 +105,12 @@ export const recordAttempt = internalMutation({
     const attempts = notification.attempts + 1;
 
     if (error === undefined) {
-      await ctx.db.patch(notificationId, { status: "sent", attempts, sentAt: Date.now(), lastError: undefined });
+      await ctx.db.patch(notificationId, {
+        status: "sent",
+        attempts,
+        sentAt: Date.now(),
+        lastError: undefined,
+      });
       return;
     }
     if (attempts >= MAX_ATTEMPTS) {

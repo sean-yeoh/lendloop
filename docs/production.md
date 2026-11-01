@@ -45,7 +45,8 @@ Configuration changes:
 
 ## Data and privacy
 
-- **Account deletion.** When a user deletes their Clerk account, the Convex data stays. Add a Clerk `user.deleted` webhook to a signed Convex HTTP endpoint that removes the user's email and name, removes their tools, and declines their pending requests.
+- **Account deletion.** Create a `user.deleted` webhook endpoint in the Clerk production instance, pointing to `https://<deployment>.convex.site/clerk/webhook`. Set `CLERK_WEBHOOK_SIGNING_SECRET` and `CLERK_SECRET_KEY` (the production key) with `convex env set --prod`. Turn off self-deletion for existing production users once, with the Backend API (`scripts/clerk-setup.mjs` runs on development keys only).
+- **Dashboard deletions with active loans.** A user deleted in the Clerk Dashboard keeps their active loans. If that user was the lender, nobody can mark the tool returned. Add an admin action to close such a loan.
 - **Data export.** Add an export of a user's own data on request.
 - **Retention.** Delete old `notifications` rows (for example after 90 days) and decide how long to keep loan history.
 - **Email preferences.** Reminders and notifications are service emails. Add an option to stop non-essential emails, and include it in every email.

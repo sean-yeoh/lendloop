@@ -43,7 +43,11 @@ export const loanEventType = v.union(
 
 export const loanEventSource = v.union(v.literal("user"), v.literal("n8n"));
 
-export const notificationStatus = v.union(v.literal("pending"), v.literal("sent"), v.literal("failed"));
+export const notificationStatus = v.union(
+  v.literal("pending"),
+  v.literal("sent"),
+  v.literal("failed"),
+);
 
 export default defineSchema({
   users: defineTable({
@@ -53,6 +57,9 @@ export default defineSchema({
     role: v.union(v.literal("admin"), v.literal("user")),
     // Set by admins only. A missing value means false.
     trustedLender: v.optional(v.boolean()),
+    // Set when the account is deleted. The row stays, anonymized, so other users' loan history
+    // keeps a valid reference. See convex/account.ts.
+    deletedAt: v.optional(v.number()),
   })
     .index("by_clerkUserId", ["clerkUserId"])
     .index("by_email", ["email"]),

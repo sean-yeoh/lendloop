@@ -14,7 +14,8 @@ const seedUsers = [
 
 const secretKey = process.env.CLERK_SECRET_KEY;
 if (!secretKey) fail("CLERK_SECRET_KEY is not set. Add it to .env.local.");
-if (!secretKey.startsWith("sk_test_")) fail("Seed only runs against a Clerk development instance (sk_test_ key).");
+if (!secretKey.startsWith("sk_test_"))
+  fail("Seed only runs against a Clerk development instance (sk_test_ key).");
 
 // Optional. If set, new test users get this password. Otherwise they sign in with an email code.
 const password = process.env.SEED_USER_PASSWORD;
@@ -45,6 +46,10 @@ for (const seedUser of seedUsers) {
     });
     console.log(`Clerk user created: ${seedUser.email}`);
   }
+  // Seed users skip ensureUser's scheduled call, so turn off Clerk's own Delete account here.
+  // Accounts are deleted in LendLoop, which checks for active loans first.
+  if (user.deleteSelfEnabled)
+    user = await clerk.users.updateUser(user.id, { deleteSelfEnabled: false });
   users.push({
     clerkUserId: user.id,
     email: seedUser.email,
@@ -58,7 +63,9 @@ try {
   const today = [now.getFullYear(), now.getMonth() + 1, now.getDate()]
     .map((part) => String(part).padStart(2, "0"))
     .join("-");
-  execFileSync("convex", ["run", "seed:run", JSON.stringify({ users, today })], { stdio: "inherit" });
+  execFileSync("convex", ["run", "seed:run", JSON.stringify({ users, today })], {
+    stdio: "inherit",
+  });
 } catch {
   process.exit(1);
 }

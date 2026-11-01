@@ -59,6 +59,9 @@ requested -> cancelled
 - **Loan activity shows automation results.** Each loan in My requests, Incoming, and the admin loan list shows the last n8n reminder ("Reminder sent 2 days ago", with the count) and the delivery status of the latest notification email. It shows times and statuses only, no message content.
 - **Trusted Lender is a badge.** Admins give it to reliable lenders. Signed-in users see it next to the lender's name. It changes no loan rules.
 - **The admin user list shows names, not emails.** The Trusted Lender decision needs no contact data.
+- **Account deletion is in LendLoop, and is blocked while a loan is active.** **Manage account** has a **Delete account** page (`components/account/DeleteAccountPage.tsx`). An approved loan that is not returned blocks deletion, on either side, because the tool must still come back. When deletion is allowed, Convex removes the user's listings, declines incoming pending requests, cancels the user's own pending requests (the other person is notified), anonymizes the user row, and then deletes the Clerk user with the Backend API, with retries. Clerk's own **Delete account** is turned off for each user (`delete_self_enabled: false`), when Convex creates the user and in `make clerk-setup`, so it cannot skip the loan check.
+- **A deleted user row is anonymized, not deleted.** Other users' loan history refers to it. The name becomes "Deleted user", the email is cleared, and admin and Trusted Lender are removed. The Clerk user ID stays, so a repeated webhook and an old session are recognized. It identifies no one once the Clerk user is deleted. A deleted account counts as signed out in every Convex function, and gets no notifications or reminders.
+- **A deletion in the Clerk Dashboard cannot be blocked.** The Clerk `user.deleted` webhook (`POST /clerk/webhook` on Convex) closes the account in the same way, but leaves active loans as they are, so the lender can still mark the tool returned.
 - **Owners cannot block dates.** The requirements do not include this. The owner controls each loan with approve and decline. A possible next step is a `toolBlocks` table, checked with the same overlap rule as loans.
 
 ## Pages
@@ -106,7 +109,10 @@ Rules:
 | `users.listForAdmin` | ✗ | ✗ | ✓ | Names, no emails | Trusted Lender › listForAdmin returns names and tool counts, never emails, to admins only |
 | `users.setTrustedLender` | ✗ | ✗ | ✓ | | Trusted Lender › a normal user cannot mark anyone, including themselves |
 | `users.ensureUser`, `users.me` | ✗ / null | Self | Self | Never changes the role | ensureUser › updates email and name but keeps the role. me › returns null when not signed in |
+| `account.deletionStatus` | null | Self | Self | Names, no emails | deletionStatus › lists approved loans on both sides as blocking, with names only |
+| `account.deleteMyAccount` | ✗ | Self | Self | Refused while a loan is approved and not returned | deleteMyAccount › is refused while the user is the lender (or borrower) on an approved loan |
 | `users.grantAdmin`, `users.revokeAdmin`, `seed.run` | Internal | Internal | Internal | CLI with deployment access only | grantAdmin and revokeAdmin › grant, grant again, revoke, revoke again |
+| `POST /clerk/webhook` | Clerk only | | | Clerk signature (Standard Webhooks) | POST /clerk/webhook › rejects a wrong signature and an unsigned request |
 
 ✓ allowed. ✗ rejected with an error. "Empty" returns no data. Signed-out callers get no data from list queries, because the Convex client re-runs open queries without a token during sign-out.
 
@@ -185,6 +191,7 @@ Every request between Convex and n8n is signed with HMAC-SHA256, in both directi
 | Authorization | In every Convex function, by role and by ownership. See [Access control](#access-control). The UI checks are for display only. |
 | Admin rights | Granted only by internal Convex functions from the CLI (`make admin-grant`). No browser request can change a role. |
 | Convex and n8n | HMAC-SHA256 signatures in both directions, a separate secret for each direction, a 5-minute timestamp window, and constant-time comparison. See [Request signing](#request-signing). |
+| Clerk webhook | Verified with Clerk's `verifyWebhook` (Standard Webhooks signature, 5-minute timestamp window) and `CLERK_WEBHOOK_SIGNING_SECRET`. A bad signature gets 400. The handler is safe to repeat, because Clerk can send an event more than once. |
 | Input validation | Convex argument validators, plus checks for name and description length, date format, date ranges, the client date, and loan status changes. |
 | Concurrency | Convex mutations are serializable transactions. An approval checks the overlap again inside its transaction. |
 | Secrets | In `.env.local` (ignored by Git), Convex environment variables, and encrypted n8n credentials. No secret is in the code or in the exported workflow JSON. `make n8n-setup` passes secrets through stdin only. |
@@ -208,6 +215,7 @@ Each caller gets only the fields that it needs:
 
 - **Display names never fall back to the full email address.** If Clerk has no name, the app uses the part of the email before `@`.
 - **The email address is used only for notifications and reminders**, and only n8n receives it.
+- **Users can delete their account.** Convex clears the email and name, and Clerk deletes the sign-in data. See [Decisions](#decisions).
 - **Logs:** error messages contain no email addresses or secrets. The one exception is the admin CLI error "No user with email …", which only the operator sees.
 
 Known gaps are listed in the [production note](docs/production.md#data-and-privacy).
@@ -397,6 +405,33 @@ To sign in as a test user, enter the email, then the code `424242`. Clerk never 
 
 If you change the Mailpit or n8n host port (see [Daily development](#daily-development)), use that port in the URLs above.
 
+### 9. Connect Clerk for account deletion
+
+Convex deletes Clerk users and turns off Clerk's own **Delete account** button, so it needs the Clerk secret key. With `convex dev` running, run:
+
+```sh
+make clerk-setup
+```
+
+The script copies `CLERK_SECRET_KEY` from `.env.local` to Convex through stdin, and turns off Clerk's own **Delete account** for existing users. It never prints a secret. Without this step, **Manage account > Delete account** anonymizes the Convex data but the Clerk user stays.
+
+The `user.deleted` webhook handles users deleted in the Clerk Dashboard. Clerk must reach the local Convex HTTP port (3211), so it needs a tunnel. This part is optional for local development:
+
+1. Start a tunnel: `ngrok http 3211`. Copy the `https://…` forwarding URL.
+2. In the Clerk dashboard, open **Webhooks** and select **Add Endpoint**:
+   - Endpoint URL: `<forwarding URL>/clerk/webhook`
+   - Subscribe to events: `user.deleted`
+3. Open the new endpoint, copy the **Signing Secret** (`whsec_…`), and add it to `.env.local`:
+
+   ```
+   CLERK_WEBHOOK_SIGNING_SECRET=whsec_...
+   ```
+
+4. Run `make clerk-setup` again.
+5. On the endpoint page, open the **Testing** tab, select `user.deleted`, and select **Send Example**. The attempt must show **Succeeded**, with the response `{"result":"unknown user"}`, because the example user does not exist in Convex.
+
+A free ngrok URL changes each time ngrok starts. Then update the endpoint URL in Clerk.
+
 ### Environment variables
 
 | Variable | Where it is set | Source |
@@ -411,6 +446,9 @@ If you change the Mailpit or n8n host port (see [Daily development](#daily-devel
 | `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL` | `.env.local` | `/` (step 3.8) |
 | `SEED_USER_PASSWORD` | `.env.local` | Optional. Password for new seed users (step 7). |
 | `CLERK_JWT_ISSUER_DOMAIN` | Convex deployment (`convex env set`) | Clerk dashboard, **API keys**, Frontend API URL |
+| `CLERK_WEBHOOK_SIGNING_SECRET` | `.env.local` | Optional. Clerk dashboard, **Webhooks**, the endpoint's Signing Secret (step 9). Secret. |
+| `CLERK_SECRET_KEY` | Convex deployment | `make clerk-setup` copies it from `.env.local` (step 9). Secret. |
+| `CLERK_WEBHOOK_SIGNING_SECRET` | Convex deployment | `make clerk-setup` copies it from `.env.local`, if set (step 9). Secret. |
 | `N8N_NOTIFY_URL` | Convex deployment | `make n8n-setup` (the local n8n webhook URL) |
 | `N8N_NOTIFY_SECRET` | Convex deployment, and the n8n credential "LendLoop signing: Convex to n8n" | `make n8n-setup` (random). Secret. |
 | `N8N_API_SECRET` | Convex deployment, and the n8n credential "LendLoop signing: n8n to Convex" | `make n8n-setup` (random). Secret. |
@@ -446,6 +484,7 @@ Run `make` to see all commands:
 | `make container-logs` | Follow the container logs |
 | `make seed` | Create the test users, tools, and loans (step 7) |
 | `make n8n-setup` | Create the signing secrets, and import the n8n credentials and workflows (step 8) |
+| `make clerk-setup` | Copy the Clerk keys to Convex, and turn off Clerk's own Delete account (step 9) |
 | `make test` / `make check` | Run the tests, or type-check, lint, and test |
 | `make admin-grant EMAIL=…` / `make admin-revoke EMAIL=…` | Change admin rights (step 6) |
 

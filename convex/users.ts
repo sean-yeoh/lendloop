@@ -1,7 +1,8 @@
 import { ConvexError, v } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { internalMutation, mutation, query } from "./_generated/server";
-import { getCurrentUser, requireAdmin } from "./lib/auth";
+import { findUserByClerkId, getCurrentUser, requireAdmin } from "./lib/auth";
 
 // Lists are capped until they are paginated.
 const LIST_LIMIT = 200;
@@ -22,19 +23,25 @@ export const ensureUser = mutation({
     // Names are shown to other users, so the fallback must not be the full email address.
     const name = identity.name?.trim() || identity.email.split("@")[0]!.split("+")[0]!;
 
-    const existing = await getCurrentUser(ctx);
+    const existing = await findUserByClerkId(ctx, identity.subject);
+    if (existing?.deletedAt) throw new ConvexError("This account was deleted");
     if (existing) {
       if (existing.email !== email || existing.name !== name) {
         await ctx.db.patch(existing._id, { email, name });
       }
       return existing._id;
     }
-    return await ctx.db.insert("users", {
+    const userId = await ctx.db.insert("users", {
       clerkUserId: identity.subject,
       email,
       name,
       role: "user",
     });
+    // Account deletion goes through LendLoop, which checks for active loans first. See convex/account.ts.
+    await ctx.scheduler.runAfter(0, internal.clerk.disableSelfDelete, {
+      clerkUserId: identity.subject,
+    });
+    return userId;
   },
 });
 
@@ -52,7 +59,8 @@ async function getUserByEmail(ctx: MutationCtx, email: string) {
     .query("users")
     .withIndex("by_email", (q) => q.eq("email", email.toLowerCase()))
     .unique();
-  if (!user) throw new ConvexError(`No user with email ${email}. The user must sign in once first.`);
+  if (!user)
+    throw new ConvexError(`No user with email ${email}. The user must sign in once first.`);
   return user;
 }
 
@@ -61,7 +69,7 @@ export const listForAdmin = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    const users = await ctx.db.query("users").take(LIST_LIMIT);
+    const users = (await ctx.db.query("users").take(LIST_LIMIT)).filter((user) => !user.deletedAt);
     return await Promise.all(
       users.map(async (user) => {
         const tools = await ctx.db
@@ -86,7 +94,7 @@ export const setTrustedLender = mutation({
   handler: async (ctx, { userId, trusted }) => {
     await requireAdmin(ctx);
     const user = await ctx.db.get(userId);
-    if (!user) throw new ConvexError("User not found");
+    if (!user || user.deletedAt) throw new ConvexError("User not found");
     await ctx.db.patch(userId, { trustedLender: trusted });
   },
 });

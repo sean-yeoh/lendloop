@@ -32,7 +32,8 @@ export const overdueForReminders = internalQuery({
         ctx.db.get(loan.borrowerId),
         ctx.db.get(loan.lenderId),
       ]);
-      if (!tool || !borrower || !lender) continue;
+      // A deleted account has no email address left to remind.
+      if (!tool || !borrower || !lender || borrower.deletedAt) continue;
       due.push({
         loanId: loan._id,
         borrower: { name: borrower.name, email: borrower.email },
