@@ -1,0 +1,39 @@
+# Local services for development: n8n (workflow automation) and Mailpit (a local email inbox).
+# Start with `make container-up`. Works with `podman compose` and `docker compose`.
+# If a host port is taken, set N8N_HOST_PORT or MAILPIT_HOST_PORT, for example
+# `make container-up MAILPIT_HOST_PORT=8026`.
+services:
+  n8n:
+    image: docker.io/n8nio/n8n:2.45.7
+    restart: unless-stopped
+    ports:
+      # Bound to localhost only. Convex reaches the webhooks at http://localhost:5678 by default.
+      - "127.0.0.1:${N8N_HOST_PORT:-5678}:5678"
+    environment:
+      GENERIC_TIMEZONE: ${TZ:-UTC}
+      TZ: ${TZ:-UTC}
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      # The Code node needs the Node.js crypto module to check HMAC signatures.
+      NODE_FUNCTION_ALLOW_BUILTIN: crypto
+    extra_hosts:
+      # Lets workflows call the local Convex backend at http://host.docker.internal:3211.
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # Workflows, credentials, and the n8n encryption key. Keep this volume.
+      - n8n_data:/home/node/.n8n
+
+  mailpit:
+    image: docker.io/axllent/mailpit:v1.33.0
+    restart: unless-stopped
+    ports:
+      # Web inbox. n8n sends email to mailpit:1025 inside the compose network.
+      - "127.0.0.1:${MAILPIT_HOST_PORT:-8025}:8025"
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: 5000
+    volumes:
+      - mailpit_data:/data
+
+volumes:
+  n8n_data:
+  mailpit_data:

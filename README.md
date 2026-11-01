@@ -114,9 +114,16 @@ Follow every step in order. Do not skip a step because it looks optional. Each s
 
 - Node.js 22.12 or later (required by Vitest)
 - pnpm
+- GNU Make (`make`). macOS includes it with the Xcode Command Line Tools.
+- [Hivemind](https://github.com/DarthSim/hivemind), for `make dev` (`brew install hivemind`)
+- A container engine with Compose, for n8n and Mailpit. One of:
+  - Docker with the Docker Compose plugin (`docker compose`)
+  - Podman with a Compose provider (`podman compose`). On macOS, start the Podman machine first (`podman machine start`).
 - A Clerk account (free) at [dashboard.clerk.com](https://dashboard.clerk.com)
 
 A Convex account is not required for local development.
+
+Tested with GNU Make 3.81, Hivemind 1.1.0, and Podman 6.1.4 with podman-compose. The Makefile uses `podman compose` if Podman is installed, and `docker compose` if it is not.
 
 ### 1. Install dependencies
 
@@ -275,12 +282,36 @@ Add `--names-only` to hide the values.
 
 ### Daily development
 
-Run these in two terminals:
-
 ```sh
-pnpm exec convex dev
-pnpm dev
+make dev
 ```
+
+This command starts n8n and Mailpit in containers, then runs Next.js and `convex dev` together with Hivemind (`Procfile.dev`). Press `Ctrl+C` to stop Next.js and Convex. The containers keep running until `make container-down`.
+
+| Service | URL |
+|---|---|
+| App | http://localhost:3000 |
+| n8n | http://localhost:5678 |
+| Mailpit (local email inbox) | http://localhost:8025 |
+
+Run `make` to see all commands:
+
+| Command | What it does |
+|---|---|
+| `make dev` | Start the containers, then Next.js and Convex |
+| `make container-up` / `make container-down` | Start or stop n8n and Mailpit. `down` keeps the data volumes. |
+| `make container-logs` | Follow the container logs |
+| `make seed` | Create the test users, tools, and loans (step 7) |
+| `make test` / `make check` | Run the tests, or type-check, lint, and test |
+| `make admin-grant EMAIL=…` / `make admin-revoke EMAIL=…` | Change admin rights (step 6) |
+
+**If a port is in use** (for example, another project's Mailpit on 8025), choose another host port: `make dev MAILPIT_HOST_PORT=8026` or `make container-up N8N_HOST_PORT=5679`. To keep the setting on your machine, put it in `Makefile.local`, which Git ignores:
+
+```make
+MAILPIT_HOST_PORT = 8026
+```
+
+Without Make, run `pnpm exec convex dev` and `pnpm dev` in two terminals, and `docker compose up -d` (or `podman compose up -d`).
 
 To open the local Convex dashboard in the browser, run `pnpm exec convex dashboard`.
 
