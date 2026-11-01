@@ -293,7 +293,7 @@ describe("lists", () => {
 });
 
 describe("bookedRanges", () => {
-  test("returns only the dates of approved loans, and requires sign-in", async () => {
+  test("returns only the dates of approved loans, and nothing when signed out", async () => {
     const { t, alice, bob, carol, toolId, request } = await scenario();
     const approved = await request(bob, "2026-11-12", "2026-11-14");
     await request(carol, "2026-11-20", "2026-11-21");
@@ -302,6 +302,42 @@ describe("bookedRanges", () => {
     expect(await carol.as.query(api.loans.bookedRanges, { toolId })).toEqual([
       { startDate: "2026-11-12", endDate: "2026-11-14" },
     ]);
-    await expect(t.query(api.loans.bookedRanges, { toolId })).rejects.toThrow("Not signed in");
+    expect(await t.query(api.loans.bookedRanges, { toolId })).toEqual([]);
+  });
+});
+
+describe("signed out", () => {
+  test("list queries return no data, and mutations still reject", async () => {
+    const { t, bob, request } = await scenario();
+    const loanId = await request(bob, "2026-11-12", "2026-11-14");
+
+    expect(await t.query(api.loans.myRequests, {})).toEqual([]);
+    expect(await t.query(api.loans.incoming, {})).toEqual([]);
+    expect(await t.query(api.loans.navCounts, { today: TODAY })).toEqual({ incomingPending: 0, myOverdue: 0 });
+    await expect(t.mutation(api.loans.cancel, { loanId })).rejects.toThrow("Not signed in");
+    await expect(t.query(api.loans.listAll, {})).rejects.toThrow("Not signed in");
+  });
+});
+
+describe("navCounts", () => {
+  test("counts pending requests for the lender and overdue loans for the borrower", async () => {
+    const { t, alice, bob, carol, toolId, request } = await scenario();
+    await request(bob, "2026-11-12", "2026-11-14");
+    await request(carol, "2026-11-20", "2026-11-21");
+    // An approved loan that ended yesterday is overdue. A returned one is not.
+    const insertLoan = (fields: Pick<Doc<"loans">, "startDate" | "endDate" | "status">) =>
+      t.run((ctx) => ctx.db.insert("loans", { toolId, borrowerId: bob.id, lenderId: alice.id, ...fields }));
+    await insertLoan({ startDate: "2026-11-01", endDate: "2026-11-09", status: "approved" });
+    await insertLoan({ startDate: "2026-11-01", endDate: "2026-11-05", status: "returned" });
+    await insertLoan({ startDate: "2026-11-09", endDate: "2026-11-10", status: "approved" });
+
+    expect(await alice.as.query(api.loans.navCounts, { today: TODAY })).toEqual({
+      incomingPending: 2,
+      myOverdue: 0,
+    });
+    expect(await bob.as.query(api.loans.navCounts, { today: TODAY })).toEqual({
+      incomingPending: 0,
+      myOverdue: 1,
+    });
   });
 });

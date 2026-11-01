@@ -176,9 +176,13 @@ describe("listPublic", () => {
 });
 
 describe("list", () => {
-  test("rejects a caller that is not signed in", async () => {
+  test("returns no tools to a caller that is not signed in", async () => {
     const t = setup();
-    await expect(t.query(api.tools.list, { today: TODAY })).rejects.toThrow("Not signed in");
+    const alice = await addUser(t, "alice");
+    await alice.as.mutation(api.tools.create, drill);
+
+    expect(await t.query(api.tools.list, { today: TODAY })).toEqual([]);
+    expect(await t.query(api.tools.mine, { today: TODAY })).toEqual([]);
   });
 
   test("rejects an invalid date", async () => {

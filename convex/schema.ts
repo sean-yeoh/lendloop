@@ -81,7 +81,9 @@ export default defineSchema({
   })
     .index("by_tool_status", ["toolId", "status"])
     .index("by_borrower", ["borrowerId"])
+    .index("by_borrower_status_endDate", ["borrowerId", "status", "endDate"])
     .index("by_lender", ["lenderId"])
+    .index("by_lender_status", ["lenderId", "status"])
     .index("by_status_endDate", ["status", "endDate"]),
 
   loanEvents: defineTable({

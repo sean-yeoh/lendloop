@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { requireAdmin, requireUser } from "./lib/auth";
+import { getCurrentUser, requireAdmin, requireUser } from "./lib/auth";
 import { assertClientToday, assertDate, rangesOverlap } from "./lib/dates";
 
 // Lists are capped until they are paginated.
@@ -103,9 +103,34 @@ export const markReturned = mutation({
 export const bookedRanges = query({
   args: { toolId: v.id("tools") },
   handler: async (ctx, { toolId }) => {
-    await requireUser(ctx);
+    // Signed-out callers get no data, not an error. On sign-out, the Convex client re-runs open
+    // queries without a token before the page can skip them.
+    if (!(await getCurrentUser(ctx))) return [];
     const approved = await loansForTool(ctx, toolId, "approved");
     return approved.map((loan) => ({ startDate: loan.startDate, endDate: loan.endDate }));
+  },
+});
+
+// Counts for the header badges: requests waiting for the caller's answer, and the caller's
+// overdue loans. Numbers only.
+export const navCounts = query({
+  args: { today: v.string() },
+  handler: async (ctx, { today }) => {
+    const me = await getCurrentUser(ctx);
+    if (!me) return { incomingPending: 0, myOverdue: 0 };
+    assertDate(today, "today");
+
+    const pending = await ctx.db
+      .query("loans")
+      .withIndex("by_lender_status", (q) => q.eq("lenderId", me._id).eq("status", "requested"))
+      .take(LIST_LIMIT);
+    const overdue = await ctx.db
+      .query("loans")
+      .withIndex("by_borrower_status_endDate", (q) =>
+        q.eq("borrowerId", me._id).eq("status", "approved").lt("endDate", today),
+      )
+      .take(LIST_LIMIT);
+    return { incomingPending: pending.length, myOverdue: overdue.length };
   },
 });
 
@@ -113,7 +138,10 @@ export const bookedRanges = query({
 export const myRequests = query({
   args: {},
   handler: async (ctx) => {
-    const me = await requireUser(ctx);
+    // Signed-out callers get no data, not an error. On sign-out, the Convex client re-runs open
+    // queries without a token before the page can skip them.
+    const me = await getCurrentUser(ctx);
+    if (!me) return [];
     const loans = await ctx.db
       .query("loans")
       .withIndex("by_borrower", (q) => q.eq("borrowerId", me._id))
@@ -133,7 +161,10 @@ export const myRequests = query({
 export const incoming = query({
   args: {},
   handler: async (ctx) => {
-    const me = await requireUser(ctx);
+    // Signed-out callers get no data, not an error. On sign-out, the Convex client re-runs open
+    // queries without a token before the page can skip them.
+    const me = await getCurrentUser(ctx);
+    if (!me) return [];
     const loans = await ctx.db
       .query("loans")
       .withIndex("by_lender", (q) => q.eq("lenderId", me._id))

@@ -3,6 +3,7 @@
 import { useClerk, useUser } from "@clerk/nextjs";
 import { Inbox, LogOut, Package, Search, Send, UserCog } from "lucide-react";
 import Link from "next/link";
+import { CountBadge } from "@/components/CountBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -13,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 // Replaces Clerk's UserButton, so the menu matches the app. Account settings stay in Clerk's dialog.
-export function UserMenu() {
+export function UserMenu({ counts }: { counts: { incomingPending: number; myOverdue: number } }) {
   const { user } = useUser();
   const { openUserProfile, signOut } = useClerk();
   if (!user) return null;
@@ -27,7 +28,13 @@ export function UserMenu() {
         aria-label="Open account menu"
         className="rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        <UserAvatar name={name} imageUrl={user.hasImage ? user.imageUrl : undefined} />
+        <span className="relative block">
+          <UserAvatar name={name} imageUrl={user.hasImage ? user.imageUrl : undefined} />
+          {/* On small screens the nav links are in this menu, so show a dot when something needs action. */}
+          {counts.incomingPending + counts.myOverdue > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-destructive ring-2 ring-background md:hidden" />
+          )}
+        </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
         <div className="flex items-center gap-3 px-1.5 py-2">
@@ -49,10 +56,12 @@ export function UserMenu() {
         <DropdownMenuItem render={<Link href="/requests" />}>
           <Send />
           My requests
+          <CountBadge count={counts.myOverdue} label="overdue" tone="destructive" className="ml-auto" />
         </DropdownMenuItem>
         <DropdownMenuItem render={<Link href="/incoming" />}>
           <Inbox />
           Incoming requests
+          <CountBadge count={counts.incomingPending} label="waiting for your answer" className="ml-auto" />
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => openUserProfile()}>
           <UserCog />

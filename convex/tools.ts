@@ -1,7 +1,7 @@
 import { ConvexError, v, type Infer } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { requireUser } from "./lib/auth";
+import { getCurrentUser, requireUser } from "./lib/auth";
 import { assertDate } from "./lib/dates";
 import { DESCRIPTION_MAX, NAME_MAX } from "./lib/limits";
 import { toolCategory, toolCondition } from "./schema";
@@ -32,7 +32,10 @@ export const listPublic = query({
 export const list = query({
   args: { today: v.string(), category: v.optional(toolCategory) },
   handler: async (ctx, { today, category }) => {
-    const me = await requireUser(ctx);
+    // Signed-out callers get no data, not an error. On sign-out, the Convex client re-runs open
+    // queries without a token before the page can skip them.
+    const me = await getCurrentUser(ctx);
+    if (!me) return [];
     assertDate(today, "today");
 
     const tools = await ctx.db
@@ -64,7 +67,10 @@ export const list = query({
 export const mine = query({
   args: { today: v.string() },
   handler: async (ctx, { today }) => {
-    const me = await requireUser(ctx);
+    // Signed-out callers get no data, not an error. On sign-out, the Convex client re-runs open
+    // queries without a token before the page can skip them.
+    const me = await getCurrentUser(ctx);
+    if (!me) return [];
     assertDate(today, "today");
 
     const tools = await ctx.db
