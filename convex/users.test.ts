@@ -52,11 +52,25 @@ describe("ensureUser", () => {
     ]);
   });
 
-  test("uses the email as the name when the token has no name", async () => {
+  test("uses the email local part as the name when the token has no name, never the full email", async () => {
     const t = setup();
+    await t
+      .withIdentity({ subject: "user_bob", email: "Bob.Smith+lendloop@example.com" })
+      .mutation(api.users.ensureUser, {});
+
+    const [bob] = await getUsers(t);
+    expect(bob!.name).toBe("Bob.Smith");
+    expect(bob!.email).toBe("bob.smith+lendloop@example.com");
+  });
+
+  test("replaces a stored email-address name on the next sign-in", async () => {
+    const t = setup();
+    await t.run((ctx) =>
+      ctx.db.insert("users", { clerkUserId: "user_bob", email: "bob@example.com", name: "bob@example.com", role: "user" }),
+    );
     await t.withIdentity({ subject: "user_bob", email: "bob@example.com" }).mutation(api.users.ensureUser, {});
 
-    expect(await getUsers(t)).toMatchObject([{ name: "bob@example.com" }]);
+    expect(await getUsers(t)).toMatchObject([{ name: "bob" }]);
   });
 
   test("rejects a caller that is not signed in", async () => {

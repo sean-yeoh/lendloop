@@ -235,7 +235,7 @@ The CLI writes `CONVEX_DEPLOYMENT`, `NEXT_PUBLIC_CONVEX_URL`, and `NEXT_PUBLIC_C
       ```
 
    4. Select **Save** in the "Unsaved changes" bar at the bottom of the page.
-   5. Check the **Preview**. It must show your email. `"name": null` is OK. The app then uses the email as the name.
+   5. Check the **Preview**. It must show your email. `"name": null` is OK. The app then uses the part of the email before `@` (and before any `+`) as the name. Other users never see the full email address.
 5. Select **Configure**, then **API keys** in the left menu (under **Instance**).
 6. Open `.env.local` in your editor. Add the publishable key from the **Publishable key** section:
 

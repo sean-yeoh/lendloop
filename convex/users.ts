@@ -19,7 +19,8 @@ export const ensureUser = mutation({
     }
 
     const email = identity.email.toLowerCase();
-    const name = identity.name ?? email;
+    // Names are shown to other users, so the fallback must not be the full email address.
+    const name = identity.name?.trim() || identity.email.split("@")[0]!.split("+")[0]!;
 
     const existing = await getCurrentUser(ctx);
     if (existing) {
