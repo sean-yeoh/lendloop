@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { SignedInOnly } from "@/components/auth/SignedInOnly";
 import { ToolsBrowser } from "@/components/tools/ToolsBrowser";
 import { isToolCategory } from "@/lib/tools";
 
@@ -10,9 +11,11 @@ export default function ToolsPage({ searchParams }: PageProps<"/tools">) {
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-12">
       <h1 className="text-2xl font-semibold tracking-tight">All tools</h1>
       {/* searchParams is request data, so it must render inside Suspense with Cache Components. */}
-      <Suspense>
-        <FilteredTools searchParams={searchParams} />
-      </Suspense>
+      <SignedInOnly>
+        <Suspense>
+          <FilteredTools searchParams={searchParams} />
+        </Suspense>
+      </SignedInOnly>
     </main>
   );
 }

@@ -1,17 +1,8 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { clerkMiddleware } from "@clerk/nextjs/server";
 
-const isSignedInRoute = createRouteMatcher([
-  "/tools(.*)",
-  "/my-listings(.*)",
-  "/requests(.*)",
-  "/incoming(.*)",
-  "/admin(.*)",
-]);
-
-// Authorization is enforced in Convex functions. This only sends signed-out visitors to sign-in.
-export default clerkMiddleware(async (auth, req) => {
-  if (isSignedInRoute(req)) await auth.protect();
-});
+// Makes the Clerk session available to auth() in pages. It checks no routes: each signed-in page
+// checks sign-in itself (components/auth/SignedInOnly.tsx), and Convex checks every data access.
+export default clerkMiddleware();
 
 export const config = {
   matcher: [
